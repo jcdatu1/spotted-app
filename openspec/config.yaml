@@ -16,6 +16,23 @@ context: |
   - Video (deferred change): Mux. Maps/geocoding (deferred change): Mapbox
   - Push: Expo Notifications. Ops: Sentry (errors), PostHog (analytics)
 
+  Brand & UX conventions (source: "context/Spotted Brand Guidelines.dc (1).html"):
+  - Fonts: Fraunces = display (titles/trip names only; italic for taglines),
+    Manrope = all UI text, Space Mono = prices/codes/dates/timestamps
+    ("boarding-pass" details). Loaded via expo-google-fonts; one tailwind
+    utility per weight (font-sans-semibold etc.) — never use font-semibold
+    (fontWeight) with custom fonts.
+  - The "o" in Spotted is the coral map pin with amber dot — use the
+    SpottedWordmark/PinMark components (src/features/brand/wordmark.tsx);
+    never recolor pin and dot independently.
+  - Coral is the ONE action color; teal = money/saves; amber = celebrate.
+    Signals are used sparingly. Sand is the canvas, Deep Pine (#17403A =
+    tokens.colors.pine) for dark/passport surfaces.
+  - Voice: warm postcard-from-a-friend, present tense, specific over grand.
+  - Every pushed (non-root) screen shows a VISIBLE BACK BUTTON — use the
+    native stack header (themed, no title) unless the screen supplies its
+    own back affordance. Root tab screens and modals with close are exempt.
+
   Architecture conventions:
   - All data access goes through a typed data layer in src/data/ — no ad-hoc
     queries in components. `supabase gen types` output feeds that layer.

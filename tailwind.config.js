@@ -12,8 +12,15 @@ module.exports = {
   theme: {
     colors: tokens.colors,
     fontFamily: {
-      display: [...tokens.fontFamily.display],
-      sans: [...tokens.fontFamily.sans],
+      display: [tokens.fontFamily.display],
+      'display-italic': [tokens.fontFamily.displayItalic],
+      sans: [tokens.fontFamily.sans],
+      'sans-medium': [tokens.fontFamily.sansMedium],
+      'sans-semibold': [tokens.fontFamily.sansSemibold],
+      'sans-bold': [tokens.fontFamily.sansBold],
+      'sans-extrabold': [tokens.fontFamily.sansExtrabold],
+      mono: [tokens.fontFamily.mono],
+      'mono-bold': [tokens.fontFamily.monoBold],
     },
     fontSize: Object.fromEntries(
       Object.entries(tokens.fontSize).map(([k, v]) => [

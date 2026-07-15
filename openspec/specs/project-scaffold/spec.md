@@ -7,15 +7,19 @@ The runnable foundation of the Spotted app: a bootable Expo application with the
 ## Requirements
 
 ### Requirement: App boots with themed tab navigation
-The Expo app SHALL build and run on an iOS simulator, Android emulator, or physical device via Expo Go, presenting a tab bar with Home, Saved, and Profile placeholder screens styled with NativeWind classes.
+The Expo app SHALL build and run on an iOS simulator, Android emulator, or physical device via Expo Go. When a session exists it SHALL present a tab bar with Home, Saved, and Profile screens styled with NativeWind classes; when no session exists it SHALL present the auth flow instead.
 
 #### Scenario: App launches to tab shell
-- **WHEN** a developer runs `npx expo start` and opens the app on a device or simulator
-- **THEN** the app renders the Home placeholder screen inside a themed tab bar without runtime errors
+- **WHEN** a developer runs `npx expo start` and opens the app on a device or simulator with an active session
+- **THEN** the app renders the Home screen inside a themed tab bar without runtime errors
+
+#### Scenario: App launches to auth flow
+- **WHEN** the app is opened with no active session
+- **THEN** the app renders the welcome/auth flow without runtime errors
 
 #### Scenario: Tabs navigate
 - **WHEN** the user taps the Saved or Profile tab
-- **THEN** the corresponding placeholder screen is displayed and the active tab indicator updates
+- **THEN** the corresponding screen is displayed and the active tab indicator updates
 
 ### Requirement: Design tokens are the single styling source of truth
 The project SHALL define the Claude Design tokens (colors, type scale, spacing) in `src/theme/tokens.ts`, and the Tailwind/NativeWind configuration SHALL derive its theme from that module. Components MUST NOT hardcode color, font-size, or spacing values that exist as tokens.

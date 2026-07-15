@@ -1,6 +1,11 @@
 /**
  * Spotted design tokens — single source of truth for color, type, spacing,
- * and radii. Extracted from the Claude Design prototype (context/Spotted.html).
+ * and radii. Sources: context/Spotted.html (prototype) and
+ * "context/Spotted Brand Guidelines.dc (1).html" (brand v1.0).
+ *
+ * Brand color names → semantic tokens: Sand=surface, Ink=ink, Deep Pine=pine,
+ * Coral=primary (the ONE action color), Teal=secondary (money/saves),
+ * Amber=accent (celebrate/highlights). Signals are used sparingly.
  *
  * Consumed by:
  *  - tailwind.config.js (drives every NativeWind utility class)
@@ -23,12 +28,13 @@ export const colors = {
   ink: '#2A2420', // primary text
   inkMuted: '#8A8078', // secondary text
   inkFaint: '#A89C90', // tertiary text, disabled
-  inkInverse: '#FAF4EC', // text on dark/ink surfaces
+  inkInverse: '#FDF7EC', // text on dark/pine surfaces (brand on-dark cream)
 
   // Dark surfaces (night cards, map chrome)
   dark: '#1E1A17',
   darkRaised: '#241F1B',
   darkBorder: '#3A332D',
+  pine: '#17403A', // brand "Deep Pine" — dark mode / passport surfaces
 
   // Coral — primary brand / actions / creator accents
   primary: '#FF6A4D',
@@ -78,12 +84,24 @@ export const lineHeight = {
 } as const;
 
 /**
- * Font families. Display type in the prototype is Georgia (serif wordmark,
- * trip titles); body copy is the platform sans.
+ * Font families (brand v1.0). Values are the exact names registered by
+ * expo-google-fonts (React Native selects fonts by registered name, not
+ * weight synthesis — hence one entry per weight).
+ *
+ *  - Fraunces: display — titles & trip names only; italic for journal asides
+ *  - Manrope: every button, label, and caption
+ *  - Space Mono: prices, codes, dates, timestamps ("boarding-pass" details)
  */
 export const fontFamily = {
-  display: ['Georgia', 'serif'],
-  sans: ['System', 'sans-serif'],
+  display: 'Fraunces_600SemiBold',
+  displayItalic: 'Fraunces_500Medium_Italic',
+  sans: 'Manrope_400Regular',
+  sansMedium: 'Manrope_500Medium',
+  sansSemibold: 'Manrope_600SemiBold',
+  sansBold: 'Manrope_700Bold',
+  sansExtrabold: 'Manrope_800ExtraBold',
+  mono: 'SpaceMono_400Regular',
+  monoBold: 'SpaceMono_700Bold',
 } as const;
 
 /** Spacing scale (px) — 4pt grid. */
