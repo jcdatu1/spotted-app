@@ -1,11 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
-import * as ImagePicker from 'expo-image-picker';
 import { useState } from 'react';
 import { Pressable, Text, TextInput, View } from 'react-native';
 
-import { uploadTripPhoto, type PickedImage } from '@/data/media';
+import { uploadTripPhoto } from '@/data/media';
 import { useCreateUpdate, type NewUpdate } from '@/data/updates';
 import { AuthButton, FormError } from '@/features/auth/form';
+import { pickAndPrepareImage, type PreparedImage } from '@/lib/images';
 import { COMMON_CURRENCIES } from '@/lib/money';
 import { colors } from '@/theme/tokens';
 
@@ -76,7 +76,7 @@ export function ComposerBar({ tripId, defaultCurrency }: ComposerBarProps) {
   const [currency, setCurrency] = useState(defaultCurrency);
   const [place, setPlace] = useState('');
   const [fee, setFee] = useState('');
-  const [image, setImage] = useState<PickedImage | null>(null);
+  const [image, setImage] = useState<PreparedImage | null>(null);
 
   function reset() {
     setBody('');
@@ -90,14 +90,8 @@ export function ComposerBar({ tripId, defaultCurrency }: ComposerBarProps) {
   }
 
   async function pickImage() {
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      quality: 0.8,
-    });
-    const asset = result.assets?.[0];
-    if (!result.canceled && asset) {
-      setImage({ uri: asset.uri, mimeType: asset.mimeType, fileName: asset.fileName });
-    }
+    const prepared = await pickAndPrepareImage('tripPhoto');
+    if (prepared) setImage(prepared);
   }
 
   function parseAmount(raw: string): number | null {

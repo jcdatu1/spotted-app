@@ -33,10 +33,34 @@ export type Database = {
   };
   public: {
     Tables: {
+      private_profiles: {
+        Row: {
+          birthday: string | null;
+          id: string;
+        };
+        Insert: {
+          birthday?: string | null;
+          id: string;
+        };
+        Update: {
+          birthday?: string | null;
+          id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'private_profiles_id_fkey';
+            columns: ['id'];
+            isOneToOne: true;
+            referencedRelation: 'profiles';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
       profiles: {
         Row: {
-          avatar_url: string | null;
+          avatar_path: string | null;
           bio: string | null;
+          cover_path: string | null;
           created_at: string;
           display_name: string;
           id: string;
@@ -44,8 +68,9 @@ export type Database = {
           username: string;
         };
         Insert: {
-          avatar_url?: string | null;
+          avatar_path?: string | null;
           bio?: string | null;
+          cover_path?: string | null;
           created_at?: string;
           display_name: string;
           id: string;
@@ -53,8 +78,9 @@ export type Database = {
           username: string;
         };
         Update: {
-          avatar_url?: string | null;
+          avatar_path?: string | null;
           bio?: string | null;
+          cover_path?: string | null;
           created_at?: string;
           display_name?: string;
           id?: string;

@@ -1,3 +1,4 @@
+import { Image } from 'expo-image';
 import { Link, useRouter } from 'expo-router';
 import type { ReactNode } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
@@ -5,7 +6,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 
 import { signOut } from '@/data/auth';
 import type { Profile } from '@/data/profiles';
-import { useMyProfile } from '@/data/profiles';
+import { profileMediaUrl, useMyProfile } from '@/data/profiles';
 import type { TripWithStops } from '@/data/trips';
 import { useMyTrips } from '@/data/trips';
 import { AuthButton, FormError } from '@/features/auth/form';
@@ -14,20 +15,35 @@ import { colors } from '@/theme/tokens';
 
 const AVATAR_SIZE = 88;
 
-/** Teal band + overlapping avatar + identity block. `action` is the slot the
- *  audience view will fill with a Follow button (holder: Edit profile). */
+/** Cover band (photo when set, teal when not) + overlapping avatar + identity
+ *  block. `action` is the slot the audience view will fill with a Follow
+ *  button (holder: Edit profile). */
 function ProfileHeader({ profile, action }: { profile: Profile; action: ReactNode }) {
   const insets = useSafeAreaInsets();
   const initial = profile.display_name.trim().charAt(0).toUpperCase() || '@';
+  const coverUrl = profileMediaUrl(profile.cover_path);
+  const avatarUrl = profileMediaUrl(profile.avatar_path);
 
   return (
     <View>
-      <View className="bg-secondary" style={{ height: insets.top + 84 }} />
+      {coverUrl ? (
+        <Image source={{ uri: coverUrl }} style={{ height: insets.top + 84 }} contentFit="cover" />
+      ) : (
+        <View className="bg-secondary" style={{ height: insets.top + 84 }} />
+      )}
       <View className="px-5" style={{ marginTop: -AVATAR_SIZE / 2 }}>
         <View
-          className="items-center justify-center border-4 border-surface bg-primary"
+          className="items-center justify-center overflow-hidden border-4 border-surface bg-primary"
           style={{ width: AVATAR_SIZE, height: AVATAR_SIZE, borderRadius: AVATAR_SIZE / 2 }}>
-          <Text className="font-display text-3xl text-inkInverse">{initial}</Text>
+          {avatarUrl ? (
+            <Image
+              source={{ uri: avatarUrl }}
+              style={{ width: '100%', height: '100%' }}
+              contentFit="cover"
+            />
+          ) : (
+            <Text className="font-display text-3xl text-inkInverse">{initial}</Text>
+          )}
         </View>
         <View className="mt-2.5 flex-row items-start justify-between gap-3">
           <View className="flex-1">
