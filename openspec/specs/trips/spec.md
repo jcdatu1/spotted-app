@@ -46,6 +46,17 @@ The Profile tab SHALL list the signed-in user's trips (drafts and published, new
 - **WHEN** a creator with trips opens the Profile tab
 - **THEN** their trips are listed with draft/published status and tapping one opens its thread
 
+### Requirement: Trip listings expose a stops count
+The trips data layer SHALL expose, for the owner's trip list, the number of updates ("stops") each trip contains, computed from existing tables under existing RLS (no denormalized counters). UI surfaces MAY render this as a stops chip.
+
+#### Scenario: Trip with updates shows its count
+- **WHEN** the owner's trip list is fetched for a trip that has 3 updates
+- **THEN** the trip's stops count is 3
+
+#### Scenario: Empty trip shows zero
+- **WHEN** the owner's trip list is fetched for a trip with no updates
+- **THEN** the trip's stops count is 0
+
 ### Requirement: Published trips are browsable from Home
 The Home tab SHALL list published trips (newest published first) with title and creator name, navigating into the trip thread on tap. This is the dev-grade discovery stub; the Home health-check card remains present.
 

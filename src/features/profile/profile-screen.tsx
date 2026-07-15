@@ -79,14 +79,22 @@ function tripMeta(createdAt: string): string {
   return d.toLocaleDateString('en-US', { month: 'short', year: 'numeric' }).toUpperCase();
 }
 
-function NewTripPill() {
+/** Create-trip CTA leading the trip list — the profile's one coral action. */
+function StartTripCard() {
   return (
     <Link href="/trip/new" asChild>
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel="New trip"
-        className="rounded-full bg-primary px-4 py-1.5">
-        <Text className="font-sans-bold text-sm text-white">+ New trip</Text>
+        accessibilityLabel="Start a new trip"
+        className="mb-3 items-center rounded-bubble border border-primary bg-primaryFaint px-6 py-5"
+        style={{ borderStyle: 'dashed' }}>
+        <Text className="font-display text-xl text-primary">+</Text>
+        <Text className="mt-1 text-center font-display-italic text-base text-ink">
+          Where to next?
+        </Text>
+        <Text className="mt-0.5 text-center font-sans text-sm text-inkMuted">
+          Start a new journal
+        </Text>
       </Pressable>
     </Link>
   );
@@ -101,31 +109,31 @@ function ProfileTripsSection({
 }) {
   return (
     <View className="mt-5 px-5">
-      <View className="mb-3 flex-row items-center justify-between">
-        <Text
-          accessibilityRole="header"
-          className="font-sans-bold text-sm tracking-widest text-inkMuted">
-          TRIPS
-        </Text>
-        <NewTripPill />
-      </View>
+      <Text
+        accessibilityRole="header"
+        className="mb-3 font-sans-bold text-sm tracking-widest text-inkMuted">
+        TRIPS
+      </Text>
       {isPending ? (
         <ActivityIndicator color={colors.primary} />
       ) : trips && trips.length > 0 ? (
-        trips.map((trip, index) => (
-          <Link key={trip.id} href={{ pathname: '/trip/[id]', params: { id: trip.id } }} asChild>
-            <Pressable accessibilityRole="button" accessibilityLabel={`Open trip ${trip.title}`}>
-              <TripCard
-                title={trip.title}
-                subtitle={trip.description ?? 'No description'}
-                status={trip.status}
-                meta={tripMeta(trip.created_at)}
-                stops={trip.stops}
-                tintIndex={index}
-              />
-            </Pressable>
-          </Link>
-        ))
+        <>
+          <StartTripCard />
+          {trips.map((trip, index) => (
+            <Link key={trip.id} href={{ pathname: '/trip/[id]', params: { id: trip.id } }} asChild>
+              <Pressable accessibilityRole="button" accessibilityLabel={`Open trip ${trip.title}`}>
+                <TripCard
+                  title={trip.title}
+                  subtitle={trip.description ?? 'No description'}
+                  status={trip.status}
+                  meta={tripMeta(trip.created_at)}
+                  stops={trip.stops}
+                  tintIndex={index}
+                />
+              </Pressable>
+            </Link>
+          ))}
+        </>
       ) : (
         <View className="items-center rounded-bubble border border-border bg-surfaceRaised px-6 py-8">
           <Text className="text-center font-display-italic text-base text-inkMuted">
@@ -177,8 +185,8 @@ export function ProfileScreen() {
             accessibilityRole="button"
             accessibilityLabel="Edit profile"
             onPress={() => router.push('/profile/edit')}
-            className="rounded-full bg-primary px-5 py-2">
-            <Text className="font-sans-bold text-sm text-white">Edit profile</Text>
+            className="rounded-full border border-borderStrong bg-surfaceRaised px-5 py-2">
+            <Text className="font-sans-bold text-sm text-ink">Edit profile</Text>
           </Pressable>
         }
       />

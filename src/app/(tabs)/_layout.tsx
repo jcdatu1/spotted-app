@@ -1,7 +1,38 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Tabs } from 'expo-router';
+import { Tabs, useRouter } from 'expo-router';
+import { Pressable, View } from 'react-native';
 
 import { colors, fontFamily, fontSize } from '@/theme/tokens';
+
+/** Raised coral center button (mockup BOTTOM NAV); opens the trip creation
+ *  flow instead of focusing its dummy route. */
+function NewTripTabButton() {
+  const router = useRouter();
+  return (
+    <View style={{ flex: 1, alignItems: 'center' }}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="New trip"
+        onPress={() => router.push('/trip/new')}
+        style={{
+          width: 56,
+          height: 56,
+          borderRadius: 28,
+          marginTop: -14,
+          alignItems: 'center',
+          justifyContent: 'center',
+          backgroundColor: colors.primary,
+          shadowColor: colors.primary,
+          shadowOffset: { width: 0, height: 10 },
+          shadowOpacity: 0.5,
+          shadowRadius: 11,
+          elevation: 6,
+        }}>
+        <Ionicons name="add" color={colors.white} size={26} />
+      </Pressable>
+    </View>
+  );
+}
 
 export default function TabsLayout() {
   return (
@@ -22,15 +53,30 @@ export default function TabsLayout() {
         options={{
           title: 'Home',
           tabBarAccessibilityLabel: 'Home',
-          tabBarIcon: ({ color, size }) => <Ionicons name="compass" color={color} size={size} />,
+          tabBarIcon: ({ color, size }) => <Ionicons name="home" color={color} size={size} />,
         }}
       />
       <Tabs.Screen
-        name="saved"
+        name="discover"
         options={{
-          title: 'Saved',
-          tabBarAccessibilityLabel: 'Saved',
-          tabBarIcon: ({ color, size }) => <Ionicons name="bookmark" color={color} size={size} />,
+          title: 'Discover',
+          tabBarAccessibilityLabel: 'Discover',
+          tabBarIcon: ({ color, size }) => <Ionicons name="search" color={color} size={size} />,
+        }}
+      />
+      <Tabs.Screen
+        name="create"
+        options={{
+          title: '',
+          tabBarButton: () => <NewTripTabButton />,
+        }}
+      />
+      <Tabs.Screen
+        name="settings"
+        options={{
+          title: 'Settings',
+          tabBarAccessibilityLabel: 'Settings',
+          tabBarIcon: ({ color, size }) => <Ionicons name="settings" color={color} size={size} />,
         }}
       />
       <Tabs.Screen
@@ -38,9 +84,7 @@ export default function TabsLayout() {
         options={{
           title: 'Profile',
           tabBarAccessibilityLabel: 'Profile',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="person-circle" color={color} size={size} />
-          ),
+          tabBarIcon: ({ color, size }) => <Ionicons name="person" color={color} size={size} />,
         }}
       />
     </Tabs>
