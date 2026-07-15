@@ -1,70 +1,154 @@
-import { Link } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { Link, useRouter } from 'expo-router';
+import type { ReactNode } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { signOut } from '@/data/auth';
-import { useMyProfile, useUpdateMyProfile } from '@/data/profiles';
+import type { Profile } from '@/data/profiles';
+import { useMyProfile } from '@/data/profiles';
+import type { TripWithStops } from '@/data/trips';
 import { useMyTrips } from '@/data/trips';
-import { AuthButton, FormError, FormField } from '@/features/auth/form';
+import { AuthButton, FormError } from '@/features/auth/form';
 import { TripCard } from '@/features/trips/trip-card';
 import { colors } from '@/theme/tokens';
 
-function MyTripsSection() {
-  const { data: trips, isPending } = useMyTrips();
+const AVATAR_SIZE = 88;
+
+/** Teal band + overlapping avatar + identity block. `action` is the slot the
+ *  audience view will fill with a Follow button (holder: Edit profile). */
+function ProfileHeader({ profile, action }: { profile: Profile; action: ReactNode }) {
+  const insets = useSafeAreaInsets();
+  const initial = profile.display_name.trim().charAt(0).toUpperCase() || '@';
 
   return (
-    <View className="mt-8">
-      <Text accessibilityRole="header" className="mb-3 font-display text-xl text-ink">
-        Your trips
-      </Text>
+    <View>
+      <View className="bg-secondary" style={{ height: insets.top + 84 }} />
+      <View className="px-5" style={{ marginTop: -AVATAR_SIZE / 2 }}>
+        <View
+          className="items-center justify-center border-4 border-surface bg-primary"
+          style={{ width: AVATAR_SIZE, height: AVATAR_SIZE, borderRadius: AVATAR_SIZE / 2 }}>
+          <Text className="font-display text-3xl text-inkInverse">{initial}</Text>
+        </View>
+        <View className="mt-2.5 flex-row items-start justify-between gap-3">
+          <View className="flex-1">
+            <Text accessibilityRole="header" className="font-display text-2xl text-ink">
+              {profile.display_name}
+            </Text>
+            <Text className="mt-0.5 font-mono text-sm text-inkMuted">@{profile.username}</Text>
+          </View>
+          {action}
+        </View>
+        {profile.bio ? (
+          <Text className="mt-3 font-sans text-base text-ink">{profile.bio}</Text>
+        ) : null}
+      </View>
+    </View>
+  );
+}
+
+function Stat({ value, label, valueClass }: { value: number; label: string; valueClass?: string }) {
+  return (
+    <View className="flex-row items-baseline gap-1.5">
+      <Text className={`font-mono-bold text-lg ${valueClass ?? 'text-ink'}`}>{value}</Text>
+      <Text className="font-sans text-xs text-inkMuted">{label}</Text>
+    </View>
+  );
+}
+
+/** Followers/saves stay 0 until those capabilities ship; trips is the real count. */
+function ProfileStats({
+  followers,
+  trips,
+  saves,
+}: {
+  followers: number;
+  trips: number;
+  saves: number;
+}) {
+  return (
+    <View className="mx-5 mt-4 flex-row gap-6 border-y border-border py-3.5">
+      <Stat value={followers} label="followers" />
+      <Stat value={trips} label="trips" />
+      <Stat value={saves} label="saves" valueClass="text-secondary" />
+    </View>
+  );
+}
+
+function tripMeta(createdAt: string): string {
+  const d = new Date(createdAt);
+  return d.toLocaleDateString('en-US', { month: 'short', year: 'numeric' }).toUpperCase();
+}
+
+function NewTripPill() {
+  return (
+    <Link href="/trip/new" asChild>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="New trip"
+        className="rounded-full bg-primary px-4 py-1.5">
+        <Text className="font-sans-bold text-sm text-white">+ New trip</Text>
+      </Pressable>
+    </Link>
+  );
+}
+
+function ProfileTripsSection({
+  trips,
+  isPending,
+}: {
+  trips: TripWithStops[] | undefined;
+  isPending: boolean;
+}) {
+  return (
+    <View className="mt-5 px-5">
+      <View className="mb-3 flex-row items-center justify-between">
+        <Text
+          accessibilityRole="header"
+          className="font-sans-bold text-sm tracking-widest text-inkMuted">
+          TRIPS
+        </Text>
+        <NewTripPill />
+      </View>
       {isPending ? (
         <ActivityIndicator color={colors.primary} />
       ) : trips && trips.length > 0 ? (
-        trips.map((trip) => (
+        trips.map((trip, index) => (
           <Link key={trip.id} href={{ pathname: '/trip/[id]', params: { id: trip.id } }} asChild>
             <Pressable accessibilityRole="button" accessibilityLabel={`Open trip ${trip.title}`}>
               <TripCard
                 title={trip.title}
                 subtitle={trip.description ?? 'No description'}
                 status={trip.status}
+                meta={tripMeta(trip.created_at)}
+                stops={trip.stops}
+                tintIndex={index}
               />
             </Pressable>
           </Link>
         ))
       ) : (
-        <Text className="mb-3 font-sans text-sm text-inkMuted">
-          No trips yet — start your first journal.
-        </Text>
+        <View className="items-center rounded-bubble border border-border bg-surfaceRaised px-6 py-8">
+          <Text className="text-center font-display-italic text-base text-inkMuted">
+            No trips yet — start your first journal.
+          </Text>
+          <Link href="/trip/new" asChild>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Start your first trip"
+              className="mt-4 rounded-full bg-primary px-6 py-3">
+              <Text className="font-sans-semibold text-base text-white">Start a trip</Text>
+            </Pressable>
+          </Link>
+        </View>
       )}
-      <Link href="/trip/new" asChild>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="New trip"
-          className="mt-1 items-center rounded-full bg-primary px-6 py-3">
-          <Text className="font-sans-semibold text-base text-white">New trip</Text>
-        </Pressable>
-      </Link>
     </View>
   );
 }
 
 export function ProfileScreen() {
+  const router = useRouter();
   const { data: profile, isPending, error } = useMyProfile();
-  const update = useUpdateMyProfile();
-
-  const [displayName, setDisplayName] = useState('');
-  const [bio, setBio] = useState('');
-  const [seeded, setSeeded] = useState(false);
-  const [saveError, setSaveError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (profile && !seeded) {
-      setDisplayName(profile.display_name);
-      setBio(profile.bio ?? '');
-      setSeeded(true);
-    }
-  }, [profile, seeded]);
+  const { data: trips, isPending: tripsPending } = useMyTrips();
 
   if (isPending) {
     return (
@@ -84,55 +168,25 @@ export function ProfileScreen() {
     );
   }
 
-  const trimmedName = displayName.trim();
-  const dirty = trimmedName !== profile.display_name || bio.trim() !== (profile.bio ?? '');
-  const nameValid = trimmedName.length >= 1 && trimmedName.length <= 50;
-
-  function handleSave() {
-    setSaveError(null);
-    update.mutate(
-      { display_name: trimmedName, bio: bio.trim() || null },
-      { onError: (e) => setSaveError(e instanceof Error ? e.message : 'Save failed.') },
-    );
-  }
-
   return (
-    <SafeAreaView className="flex-1 bg-surface">
-      <ScrollView className="flex-1 px-5 pt-4">
-        <Text accessibilityRole="header" className="font-display text-3xl text-ink">
-          Profile
-        </Text>
-        <Text className="mb-6 mt-1 font-mono text-sm text-inkMuted">@{profile.username}</Text>
-
-        <FormError message={saveError} />
-        <FormField
-          label="Display name"
-          value={displayName}
-          onChangeText={setDisplayName}
-          error={nameValid ? undefined : 'Display name must be 1–50 characters.'}
-          placeholder="How you appear to others"
-        />
-        <FormField
-          label="Bio"
-          value={bio}
-          onChangeText={setBio}
-          placeholder="A line about your travels (optional)"
-          multiline
-          maxLength={160}
-        />
-        <AuthButton
-          label={update.isPending ? 'Saving…' : 'Save changes'}
-          onPress={handleSave}
-          disabled={!dirty || !nameValid}
-          busy={update.isPending}
-        />
-
-        <MyTripsSection />
-
-        <View className="mb-10 mt-10">
-          <AuthButton label="Sign out" onPress={() => signOut()} variant="secondary" />
-        </View>
-      </ScrollView>
-    </SafeAreaView>
+    <ScrollView className="flex-1 bg-surface">
+      <ProfileHeader
+        profile={profile}
+        action={
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Edit profile"
+            onPress={() => router.push('/profile/edit')}
+            className="rounded-full bg-primary px-5 py-2">
+            <Text className="font-sans-bold text-sm text-white">Edit profile</Text>
+          </Pressable>
+        }
+      />
+      <ProfileStats followers={0} trips={trips?.length ?? 0} saves={0} />
+      <ProfileTripsSection trips={trips} isPending={tripsPending} />
+      <View className="mb-10 mt-8 px-5">
+        <AuthButton label="Sign out" onPress={() => signOut()} variant="secondary" />
+      </View>
+    </ScrollView>
   );
 }

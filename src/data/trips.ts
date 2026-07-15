@@ -6,6 +6,7 @@ import type { Tables } from './types';
 export type Trip = Tables<'trips'>;
 export type TripOwner = { username: string; display_name: string };
 export type TripWithOwner = Trip & { owner: TripOwner };
+export type TripWithStops = Trip & { stops: number };
 
 const OWNER_JOIN = '*, owner:profiles!trips_owner_id_fkey(username, display_name)';
 
@@ -54,16 +55,16 @@ export async function publishTrip(id: string): Promise<Trip> {
   return data;
 }
 
-export async function listMyTrips(): Promise<Trip[]> {
+export async function listMyTrips(): Promise<TripWithStops[]> {
   const client = getSupabaseClient();
   const ownerId = await requireUserId();
   const { data, error } = await client
     .from('trips')
-    .select('*')
+    .select('*, updates(count)')
     .eq('owner_id', ownerId)
     .order('created_at', { ascending: false });
   if (error) throw new Error(error.message);
-  return data;
+  return data.map(({ updates, ...trip }) => ({ ...trip, stops: updates[0]?.count ?? 0 }));
 }
 
 export async function listPublishedTrips(): Promise<TripWithOwner[]> {

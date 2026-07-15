@@ -61,6 +61,17 @@ function RootNavigator({ fontsReady }: { fontsReady: boolean }) {
           }}
         />
         <Stack.Screen
+          name="profile/edit"
+          options={{
+            headerShown: true,
+            headerTitle: 'Edit profile',
+            headerShadowVisible: false,
+            headerStyle: { backgroundColor: colors.surface },
+            headerTintColor: colors.ink,
+            headerTitleStyle: { fontFamily: fontFamily.sansSemibold },
+          }}
+        />
+        <Stack.Screen
           name="trip/[id]"
           options={{
             headerShown: true,
