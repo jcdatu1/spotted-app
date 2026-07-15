@@ -1,0 +1,9 @@
+node_modules/
+.expo/
+dist/
+context/
+openspec/
+supabase/
+assets/
+package-lock.json
+*.md

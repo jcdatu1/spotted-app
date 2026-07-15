@@ -1,20 +1,61 @@
 schema: spec-driven
 
-# Project context (optional)
-# This is shown to AI when creating artifacts.
-# Add your tech stack, conventions, style guides, domain knowledge, etc.
-# Example:
-#   context: |
-#     Tech stack: TypeScript, React, Node.js
-#     We use conventional commits
-#     Domain: e-commerce platform
+context: |
+  Product: "Spotted" — a mobile social travel app. Creators publish travel
+  journals as chat-style threads. Each update is a TYPED record (note, photo,
+  video, purchase, attraction), not freeform chat text. Readers follow
+  creators, read trips update-by-update, react, save stops, and copy the
+  itinerary (with an auto-rolled budget) to plan their own version. Single
+  account type: a "creator" is just a user who has published a trip.
+
+  Tech stack:
+  - Client: Expo (React Native) + TypeScript, expo-router, NativeWind (Tailwind)
+  - State/data: TanStack Query (server state), Zustand (local UI state)
+  - Backend: Supabase — Postgres + PostGIS, Auth, Storage, Row-Level Security,
+    Edge Functions
+  - Video (deferred change): Mux. Maps/geocoding (deferred change): Mapbox
+  - Push: Expo Notifications. Ops: Sentry (errors), PostHog (analytics)
+
+  Architecture conventions:
+  - All data access goes through a typed data layer in src/data/ — no ad-hoc
+    queries in components. `supabase gen types` output feeds that layer.
+  - Permissions enforced via RLS, never client-side checks alone.
+  - Components organized by feature. Accessibility-friendly by default.
+  - Migrations via Supabase CLI (supabase/migrations).
+  - Environments: two cloud Supabase projects — spotted-staging (development,
+    Expo Go, migration rehearsal) and spotted-prod (releases only). No local
+    Docker stack. Migrations: `supabase db push` to staging, verify, then
+    prod. Prod credentials never in the repo (EAS build profiles later).
+
+  Locked architectural decisions:
+  1. Updates are ONE table with a type enum + typed nullable columns and
+     per-type CHECK constraints — no JSONB payloads, no per-type child tables.
+     The data layer exposes updates as a TypeScript discriminated union.
+  2. `happened_at` (creator-editable) drives thread ordering and itinerary
+     day-grouping; `created_at` is immutable metadata.
+  3. Money is stored as native `amount + currency` (char(3)); budgets roll up
+     PER CURRENCY; no FX conversion in MVP. purchase.amount and
+     attraction.entry_fee share the same `amount` column.
+  4. No role column, ever — "creator" is derived from having published trips.
+     All capabilities come from RLS row ownership (auth.uid()).
+  5. Trip visibility: authenticated-only reads in MVP; visibility logic
+     centralized in trip RLS so anon/shareable links can be added later.
+  6. Itinerary copy is a projection into separate itinerary tables that
+     reference the source trip/updates — never duplication of update rows.
+  7. No Supabase Realtime and no video in MVP: fetch-on-open +
+     pull-to-refresh via TanStack Query. Media column is named `media_path`
+     (generic) so video can be added without renames.
+
+  Planned change sequence (one OpenSpec change each):
+  add-project-scaffold → add-auth-and-profiles → add-trips-and-updates (hero
+  vertical slice: composer + thread + read-only budget rollup) →
+  add-follows-and-discovery → add-reactions-and-saves → add-itinerary-copy →
+  add-video-updates → add-map-view → add-push-notifications →
+  add-realtime-thread. UGC report/block/moderation must exist before App
+  Store submission (own change, post-MVP).
 
 # Per-artifact rules (optional)
-# Add custom rules for specific artifacts.
 # Example:
 #   rules:
 #     proposal:
 #       - Keep proposals under 500 words
-#       - Always include a "Non-goals" section
-#     tasks:
-#       - Break tasks into chunks of max 2 hours
