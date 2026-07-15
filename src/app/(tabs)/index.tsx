@@ -1,8 +1,11 @@
-import { Text, View } from 'react-native';
+import { Link } from 'expo-router';
+import { FlatList, Pressable, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useHealthCheck } from '@/data/health';
+import { usePublishedTrips } from '@/data/trips';
 import { SpottedWordmark } from '@/features/brand/wordmark';
+import { TripCard } from '@/features/trips/trip-card';
 
 function HealthCard() {
   const { data, isPending, refetch } = useHealthCheck();
@@ -51,20 +54,46 @@ function HealthCard() {
 }
 
 export default function HomeScreen() {
+  const { data: trips, isPending, refetch, isRefetching } = usePublishedTrips();
+
   return (
     <SafeAreaView className="flex-1 bg-surface">
-      <View className="flex-1 px-5 pt-4">
-        <SpottedWordmark size={30} />
-        <Text className="mt-1 font-display-italic text-base text-inkMuted">
-          Follow real trips as they happen.
-        </Text>
-        <View className="mt-6">
-          <HealthCard />
-        </View>
-        <Text className="mt-6 font-sans text-sm text-inkFaint">
-          Discovery feed arrives with add-follows-and-discovery.
-        </Text>
-      </View>
+      <FlatList
+        className="flex-1 px-5 pt-4"
+        data={trips ?? []}
+        keyExtractor={(trip) => trip.id}
+        onRefresh={refetch}
+        refreshing={isRefetching}
+        ListHeaderComponent={
+          <View className="mb-5">
+            <SpottedWordmark size={30} />
+            <Text className="mt-1 font-display-italic text-base text-inkMuted">
+              Follow real trips as they happen.
+            </Text>
+          </View>
+        }
+        renderItem={({ item }) => (
+          <Link href={{ pathname: '/trip/[id]', params: { id: item.id } }} asChild>
+            <Pressable accessibilityRole="button" accessibilityLabel={`Open trip ${item.title}`}>
+              <TripCard title={item.title} subtitle={`by ${item.owner.display_name}`} />
+            </Pressable>
+          </Link>
+        )}
+        ListEmptyComponent={
+          isPending ? null : (
+            <View className="mb-4 rounded-xl border border-border bg-surfaceRaised p-4">
+              <Text className="font-sans text-sm text-inkMuted">
+                No trips published yet — create one from your Profile and be the first.
+              </Text>
+            </View>
+          )
+        }
+        ListFooterComponent={
+          <View className="mb-8 mt-4">
+            <HealthCard />
+          </View>
+        }
+      />
     </SafeAreaView>
   );
 }

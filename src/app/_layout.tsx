@@ -17,7 +17,7 @@ import { useEffect } from 'react';
 
 import { SessionProvider, useSession } from '@/data/auth';
 import { initObservability } from '@/lib/observability';
-import { colors } from '@/theme/tokens';
+import { colors, fontFamily } from '@/theme/tokens';
 
 initObservability();
 
@@ -49,6 +49,28 @@ function RootNavigator({ fontsReady }: { fontsReady: boolean }) {
       }}>
       <Stack.Protected guard={!!session}>
         <Stack.Screen name="(tabs)" />
+        <Stack.Screen
+          name="trip/new"
+          options={{
+            headerShown: true,
+            headerTitle: 'New trip',
+            headerShadowVisible: false,
+            headerStyle: { backgroundColor: colors.surface },
+            headerTintColor: colors.ink,
+            headerTitleStyle: { fontFamily: fontFamily.sansSemibold },
+          }}
+        />
+        <Stack.Screen
+          name="trip/[id]"
+          options={{
+            headerShown: true,
+            headerTitle: '',
+            headerShadowVisible: false,
+            headerStyle: { backgroundColor: colors.surface },
+            headerTintColor: colors.ink,
+            headerTitleStyle: { fontFamily: fontFamily.sansSemibold },
+          }}
+        />
       </Stack.Protected>
       <Stack.Protected guard={!session}>
         <Stack.Screen name="(auth)" />

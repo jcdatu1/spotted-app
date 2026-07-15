@@ -1,11 +1,53 @@
+import { Link } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { signOut } from '@/data/auth';
 import { useMyProfile, useUpdateMyProfile } from '@/data/profiles';
+import { useMyTrips } from '@/data/trips';
 import { AuthButton, FormError, FormField } from '@/features/auth/form';
+import { TripCard } from '@/features/trips/trip-card';
 import { colors } from '@/theme/tokens';
+
+function MyTripsSection() {
+  const { data: trips, isPending } = useMyTrips();
+
+  return (
+    <View className="mt-8">
+      <Text accessibilityRole="header" className="mb-3 font-display text-xl text-ink">
+        Your trips
+      </Text>
+      {isPending ? (
+        <ActivityIndicator color={colors.primary} />
+      ) : trips && trips.length > 0 ? (
+        trips.map((trip) => (
+          <Link key={trip.id} href={{ pathname: '/trip/[id]', params: { id: trip.id } }} asChild>
+            <Pressable accessibilityRole="button" accessibilityLabel={`Open trip ${trip.title}`}>
+              <TripCard
+                title={trip.title}
+                subtitle={trip.description ?? 'No description'}
+                status={trip.status}
+              />
+            </Pressable>
+          </Link>
+        ))
+      ) : (
+        <Text className="mb-3 font-sans text-sm text-inkMuted">
+          No trips yet — start your first journal.
+        </Text>
+      )}
+      <Link href="/trip/new" asChild>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="New trip"
+          className="mt-1 items-center rounded-full bg-primary px-6 py-3">
+          <Text className="font-sans-semibold text-base text-white">New trip</Text>
+        </Pressable>
+      </Link>
+    </View>
+  );
+}
 
 export function ProfileScreen() {
   const { data: profile, isPending, error } = useMyProfile();
@@ -56,7 +98,7 @@ export function ProfileScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-surface">
-      <View className="flex-1 px-5 pt-4">
+      <ScrollView className="flex-1 px-5 pt-4">
         <Text accessibilityRole="header" className="font-display text-3xl text-ink">
           Profile
         </Text>
@@ -85,10 +127,12 @@ export function ProfileScreen() {
           busy={update.isPending}
         />
 
-        <View className="mt-10">
+        <MyTripsSection />
+
+        <View className="mb-10 mt-10">
           <AuthButton label="Sign out" onPress={() => signOut()} variant="secondary" />
         </View>
-      </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }

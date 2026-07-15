@@ -63,15 +63,133 @@ export type Database = {
         };
         Relationships: [];
       };
+      trips: {
+        Row: {
+          created_at: string;
+          description: string | null;
+          id: string;
+          owner_id: string;
+          published_at: string | null;
+          status: Database['public']['Enums']['trip_status'];
+          title: string;
+          updated_at: string;
+        };
+        Insert: {
+          created_at?: string;
+          description?: string | null;
+          id?: string;
+          owner_id: string;
+          published_at?: string | null;
+          status?: Database['public']['Enums']['trip_status'];
+          title: string;
+          updated_at?: string;
+        };
+        Update: {
+          created_at?: string;
+          description?: string | null;
+          id?: string;
+          owner_id?: string;
+          published_at?: string | null;
+          status?: Database['public']['Enums']['trip_status'];
+          title?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'trips_owner_id_fkey';
+            columns: ['owner_id'];
+            isOneToOne: false;
+            referencedRelation: 'profiles';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      updates: {
+        Row: {
+          amount: number | null;
+          author_id: string;
+          body: string | null;
+          created_at: string;
+          currency: string | null;
+          happened_at: string;
+          id: string;
+          media_path: string | null;
+          place_name: string | null;
+          trip_id: string;
+          type: Database['public']['Enums']['update_type'];
+          vendor_name: string | null;
+        };
+        Insert: {
+          amount?: number | null;
+          author_id: string;
+          body?: string | null;
+          created_at?: string;
+          currency?: string | null;
+          happened_at?: string;
+          id?: string;
+          media_path?: string | null;
+          place_name?: string | null;
+          trip_id: string;
+          type: Database['public']['Enums']['update_type'];
+          vendor_name?: string | null;
+        };
+        Update: {
+          amount?: number | null;
+          author_id?: string;
+          body?: string | null;
+          created_at?: string;
+          currency?: string | null;
+          happened_at?: string;
+          id?: string;
+          media_path?: string | null;
+          place_name?: string | null;
+          trip_id?: string;
+          type?: Database['public']['Enums']['update_type'];
+          vendor_name?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'updates_author_id_fkey';
+            columns: ['author_id'];
+            isOneToOne: false;
+            referencedRelation: 'profiles';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'updates_trip_id_fkey';
+            columns: ['trip_id'];
+            isOneToOne: false;
+            referencedRelation: 'trips';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
     };
     Views: {
-      [_ in never]: never;
+      trip_budgets: {
+        Row: {
+          currency: string | null;
+          items: number | null;
+          total: number | null;
+          trip_id: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'updates_trip_id_fkey';
+            columns: ['trip_id'];
+            isOneToOne: false;
+            referencedRelation: 'trips';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
     };
     Functions: {
       username_available: { Args: { name: string }; Returns: boolean };
     };
     Enums: {
-      [_ in never]: never;
+      trip_status: 'draft' | 'published';
+      update_type: 'note' | 'photo' | 'video' | 'purchase' | 'attraction';
     };
     CompositeTypes: {
       [_ in never]: never;
@@ -195,6 +313,9 @@ export const Constants = {
     Enums: {},
   },
   public: {
-    Enums: {},
+    Enums: {
+      trip_status: ['draft', 'published'],
+      update_type: ['note', 'photo', 'video', 'purchase', 'attraction'],
+    },
   },
 } as const;
