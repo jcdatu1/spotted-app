@@ -27,6 +27,16 @@ SplashScreen.preventAutoHideAsync();
 
 const queryClient = new QueryClient();
 
+/** Pushed (non-root) screens show the native themed header — the app's
+ *  visible-back-button convention. */
+const pushedHeader = {
+  headerShown: true,
+  headerShadowVisible: false,
+  headerStyle: { backgroundColor: colors.surface },
+  headerTintColor: colors.ink,
+  headerTitleStyle: { fontFamily: fontFamily.sansSemibold },
+} as const;
+
 function RootNavigator({ fontsReady }: { fontsReady: boolean }) {
   const { session, isLoading } = useSession();
   const ready = fontsReady && !isLoading;
@@ -49,38 +59,15 @@ function RootNavigator({ fontsReady }: { fontsReady: boolean }) {
       }}>
       <Stack.Protected guard={!!session}>
         <Stack.Screen name="(tabs)" />
-        <Stack.Screen
-          name="trip/new"
-          options={{
-            headerShown: true,
-            headerTitle: 'New trip',
-            headerShadowVisible: false,
-            headerStyle: { backgroundColor: colors.surface },
-            headerTintColor: colors.ink,
-            headerTitleStyle: { fontFamily: fontFamily.sansSemibold },
-          }}
-        />
+        <Stack.Screen name="trip/new" options={{ ...pushedHeader, headerTitle: 'New trip' }} />
         <Stack.Screen
           name="profile/edit"
-          options={{
-            headerShown: true,
-            headerTitle: 'Edit profile',
-            headerShadowVisible: false,
-            headerStyle: { backgroundColor: colors.surface },
-            headerTintColor: colors.ink,
-            headerTitleStyle: { fontFamily: fontFamily.sansSemibold },
-          }}
+          options={{ ...pushedHeader, headerTitle: 'Edit profile' }}
         />
+        <Stack.Screen name="trip/[id]/index" options={{ ...pushedHeader, headerTitle: '' }} />
         <Stack.Screen
-          name="trip/[id]"
-          options={{
-            headerShown: true,
-            headerTitle: '',
-            headerShadowVisible: false,
-            headerStyle: { backgroundColor: colors.surface },
-            headerTintColor: colors.ink,
-            headerTitleStyle: { fontFamily: fontFamily.sansSemibold },
-          }}
+          name="trip/[id]/edit"
+          options={{ ...pushedHeader, headerTitle: 'Edit trip' }}
         />
       </Stack.Protected>
       <Stack.Protected guard={!session}>

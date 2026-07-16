@@ -7,10 +7,11 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { signOut } from '@/data/auth';
 import type { Profile } from '@/data/profiles';
 import { profileMediaUrl, useMyProfile } from '@/data/profiles';
+import { useSignedUrls } from '@/data/storage';
 import type { TripWithStops } from '@/data/trips';
-import { useMyTrips } from '@/data/trips';
+import { getTripState, useMyTrips } from '@/data/trips';
 import { AuthButton, FormError } from '@/features/auth/form';
-import { TripCard } from '@/features/trips/trip-card';
+import { TripCard, tripCardMeta } from '@/features/trips/trip-card';
 import { colors } from '@/theme/tokens';
 
 const AVATAR_SIZE = 88;
@@ -90,11 +91,6 @@ function ProfileStats({
   );
 }
 
-function tripMeta(createdAt: string): string {
-  const d = new Date(createdAt);
-  return d.toLocaleDateString('en-US', { month: 'short', year: 'numeric' }).toUpperCase();
-}
-
 /** Create-trip CTA leading the trip list — the profile's one coral action. */
 function StartTripCard() {
   return (
@@ -123,6 +119,9 @@ function ProfileTripsSection({
   trips: TripWithStops[] | undefined;
   isPending: boolean;
 }) {
+  const coverPaths = (trips ?? []).flatMap((t) => (t.cover_path ? [t.cover_path] : []));
+  const { data: coverUrls } = useSignedUrls('trip-media', coverPaths);
+
   return (
     <View className="mt-5 px-5">
       <Text
@@ -141,9 +140,10 @@ function ProfileTripsSection({
                 <TripCard
                   title={trip.title}
                   subtitle={trip.description ?? 'No description'}
-                  status={trip.status}
-                  meta={tripMeta(trip.created_at)}
+                  state={getTripState(trip)}
+                  meta={tripCardMeta(trip)}
                   stops={trip.stops}
+                  coverUrl={trip.cover_path ? coverUrls?.[trip.cover_path] : undefined}
                   tintIndex={index}
                 />
               </Pressable>

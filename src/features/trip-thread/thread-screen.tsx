@@ -1,19 +1,23 @@
+import { useRouter } from 'expo-router';
 import { useMemo } from 'react';
 import { Alert, FlatList, KeyboardAvoidingView, Platform, Text, View } from 'react-native';
 
 import { useSession } from '@/data/auth';
 import { useSignedPhotoUrls } from '@/data/media';
-import { usePublishTrip, type TripWithOwner } from '@/data/trips';
+import { getPublishBlocker, usePublishTrip, type TripWithOwner } from '@/data/trips';
 import { useTripBudget, useTripUpdates } from '@/data/updates';
 import { AuthButton } from '@/features/auth/form';
 import { ComposerBar } from '@/features/composer/composer-bar';
 import { BudgetHeader } from '@/features/trip-thread/budget-header';
 import { UpdateBubble } from '@/features/trip-thread/update-bubble';
+import { formatTripDate } from '@/lib/dates';
 
 export function TripThreadScreen({ trip }: { trip: TripWithOwner }) {
+  const router = useRouter();
   const { session } = useSession();
   const isOwner = session?.user.id === trip.owner_id;
   const isDraft = trip.status === 'draft';
+  const publishBlocker = getPublishBlocker(trip);
 
   const updatesQuery = useTripUpdates(trip.id);
   const budgetQuery = useTripBudget(trip.id);
@@ -71,12 +75,33 @@ export function TripThreadScreen({ trip }: { trip: TripWithOwner }) {
                 <Text className="font-sans text-sm text-ink">
                   This trip is a draft — only you can see it.
                 </Text>
-                <View className="mt-2">
-                  <AuthButton
-                    label={publish.isPending ? 'Publishing…' : 'Publish trip'}
-                    onPress={confirmPublish}
-                    busy={publish.isPending}
-                  />
+                {publishBlocker === 'not-started' && trip.start_date ? (
+                  <Text className="mt-1.5 font-mono text-xs text-accentPressed">
+                    PUBLISHING OPENS {formatTripDate(trip.start_date)}
+                  </Text>
+                ) : publishBlocker === 'missing-dates' ? (
+                  <Text className="mt-1.5 font-mono text-xs text-accentPressed">
+                    ADD TRIP DATES TO PUBLISH
+                  </Text>
+                ) : null}
+                <View className="mt-2 flex-row gap-2">
+                  <View className="flex-1">
+                    <AuthButton
+                      label="Edit details"
+                      variant="secondary"
+                      onPress={() =>
+                        router.push({ pathname: '/trip/[id]/edit', params: { id: trip.id } })
+                      }
+                    />
+                  </View>
+                  <View className="flex-1">
+                    <AuthButton
+                      label={publish.isPending ? 'Publishing…' : 'Publish trip'}
+                      onPress={confirmPublish}
+                      disabled={publishBlocker !== null}
+                      busy={publish.isPending}
+                    />
+                  </View>
                 </View>
               </View>
             ) : null}

@@ -91,31 +91,43 @@ export type Database = {
       };
       trips: {
         Row: {
+          country_codes: string[];
+          cover_path: string | null;
           created_at: string;
           description: string | null;
+          end_date: string | null;
           id: string;
           owner_id: string;
           published_at: string | null;
+          start_date: string | null;
           status: Database['public']['Enums']['trip_status'];
           title: string;
           updated_at: string;
         };
         Insert: {
+          country_codes?: string[];
+          cover_path?: string | null;
           created_at?: string;
           description?: string | null;
+          end_date?: string | null;
           id?: string;
           owner_id: string;
           published_at?: string | null;
+          start_date?: string | null;
           status?: Database['public']['Enums']['trip_status'];
           title: string;
           updated_at?: string;
         };
         Update: {
+          country_codes?: string[];
+          cover_path?: string | null;
           created_at?: string;
           description?: string | null;
+          end_date?: string | null;
           id?: string;
           owner_id?: string;
           published_at?: string | null;
+          start_date?: string | null;
           status?: Database['public']['Enums']['trip_status'];
           title?: string;
           updated_at?: string;

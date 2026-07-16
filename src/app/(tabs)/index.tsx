@@ -3,9 +3,10 @@ import { FlatList, Pressable, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useHealthCheck } from '@/data/health';
-import { usePublishedTrips } from '@/data/trips';
+import { useSignedUrls } from '@/data/storage';
+import { getTripState, usePublishedTrips } from '@/data/trips';
 import { SpottedWordmark } from '@/features/brand/wordmark';
-import { TripCard } from '@/features/trips/trip-card';
+import { TripCard, tripCardMeta } from '@/features/trips/trip-card';
 
 function HealthCard() {
   const { data, isPending, refetch } = useHealthCheck();
@@ -55,6 +56,8 @@ function HealthCard() {
 
 export default function HomeScreen() {
   const { data: trips, isPending, refetch, isRefetching } = usePublishedTrips();
+  const coverPaths = (trips ?? []).flatMap((t) => (t.cover_path ? [t.cover_path] : []));
+  const { data: coverUrls } = useSignedUrls('trip-media', coverPaths);
 
   return (
     <SafeAreaView className="flex-1 bg-surface">
@@ -72,10 +75,17 @@ export default function HomeScreen() {
             </Text>
           </View>
         }
-        renderItem={({ item }) => (
+        renderItem={({ item, index }) => (
           <Link href={{ pathname: '/trip/[id]', params: { id: item.id } }} asChild>
             <Pressable accessibilityRole="button" accessibilityLabel={`Open trip ${item.title}`}>
-              <TripCard title={item.title} subtitle={`by ${item.owner.display_name}`} />
+              <TripCard
+                title={item.title}
+                subtitle={`by ${item.owner.display_name}`}
+                state={getTripState(item)}
+                meta={tripCardMeta(item)}
+                coverUrl={item.cover_path ? coverUrls?.[item.cover_path] : undefined}
+                tintIndex={index}
+              />
             </Pressable>
           </Link>
         )}
