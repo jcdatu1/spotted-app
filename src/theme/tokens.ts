@@ -104,7 +104,9 @@ export const fontFamily = {
   monoBold: 'SpaceMono_700Bold',
 } as const;
 
-/** Spacing scale (px) — 4pt grid. */
+/** Spacing scale (px) — 4pt grid (+ the prototype's 14/18px off-grid steps).
+ *  NativeWind only generates classes for keys that exist here — an absent
+ *  key (e.g. px-3.5 without `3.5`) silently styles as 0. */
 export const spacing = {
   0: 0,
   0.5: 2,
@@ -113,7 +115,9 @@ export const spacing = {
   2: 8,
   2.5: 10,
   3: 12,
+  3.5: 14,
   4: 16,
+  4.5: 18,
   5: 20,
   6: 24,
   7: 28,

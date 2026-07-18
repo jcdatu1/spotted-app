@@ -7,15 +7,18 @@ import { removeObjects, requireUserId, uniqueObjectName, uploadImage } from './s
 import type { Tables } from './types';
 
 export type Trip = Tables<'trips'>;
-export type TripOwner = { username: string; display_name: string };
+export type TripOwner = { username: string; display_name: string; avatar_path: string | null };
 export type TripWithOwner = Trip & { owner: TripOwner };
 export type TripWithStops = Trip & { stops: number };
+/** Home-feed shape: owner identity for the card footer + stops count. */
+export type FeedTrip = TripWithOwner & { stops: number };
 
 /** Draft / Live / Completed — always derived from status + dates at read
  *  time, never stored, so trips roll over with no scheduled transitions. */
 export type TripState = 'draft' | 'live' | 'completed';
 
-export const OWNER_JOIN = '*, owner:profiles!trips_owner_id_fkey(username, display_name)';
+export const OWNER_JOIN =
+  '*, owner:profiles!trips_owner_id_fkey(username, display_name, avatar_path)';
 
 const COVER_BUCKET = 'trip-media';
 
@@ -143,16 +146,16 @@ export async function listMyTrips(): Promise<TripWithStops[]> {
   return data.map(({ updates, ...trip }) => ({ ...trip, stops: updates[0]?.count ?? 0 }));
 }
 
-export async function listPublishedTrips(): Promise<TripWithOwner[]> {
+export async function listPublishedTrips(): Promise<FeedTrip[]> {
   const client = getSupabaseClient();
   const { data, error } = await client
     .from('trips')
-    .select(OWNER_JOIN)
+    .select(`${OWNER_JOIN}, updates(count)`)
     .eq('status', 'published')
     .order('published_at', { ascending: false })
     .limit(50);
   if (error) throw new Error(error.message);
-  return data;
+  return data.map(({ updates, ...trip }) => ({ ...trip, stops: updates[0]?.count ?? 0 }));
 }
 
 /** Another user's public trips — RLS would hide drafts anyway; the status

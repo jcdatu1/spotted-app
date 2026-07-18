@@ -1,4 +1,4 @@
-import { router, useLocalSearchParams, type Href } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, View } from 'react-native';
 
@@ -23,19 +23,19 @@ export default function EditTripScreen() {
   const isOwner = !!trip && session?.user.id === trip.owner_id;
   const editable = !!trip && isOwner && getTripState(trip) === 'draft';
 
-  // Only drafts are editable — bounce published/foreign trips back to the
-  // thread. Group-qualified: from the root stack a bare /trip/[id] would
-  // resolve into the first shared group alphabetically (Discover). Href cast:
-  // .expo/types/router.d.ts only regenerates on a dev server restart, so it
-  // can lag behind route moves.
+  // Only drafts are editable — bounce published/foreign trips back to where
+  // the user came from (normally the thread that pushed this screen); a
+  // replace into a tab group would swap out that tab's root and strand them.
+  // Deep-link edge (nothing to pop): fall back to the Home tab root.
   useEffect(() => {
     if (trip && !editable) {
-      router.replace({
-        pathname: '/(tabs)/(profile)/trip/[id]',
-        params: { id },
-      } as unknown as Href);
+      if (router.canGoBack()) {
+        router.back();
+      } else {
+        router.replace('/');
+      }
     }
-  }, [trip, editable, id]);
+  }, [trip, editable]);
 
   if (isPending) {
     return (

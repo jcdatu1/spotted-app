@@ -2,6 +2,7 @@ import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 
+import { useTripEngagement } from '@/data/engagement';
 import { useFollow, useFollowerCount, useIsFollowing, useUnfollow } from '@/data/follows';
 import { useProfile } from '@/data/profiles';
 import { useSignedUrls } from '@/data/storage';
@@ -68,6 +69,8 @@ export function AudienceProfileScreen({ userId }: { userId: string }) {
   const [followError, setFollowError] = useState<string | null>(null);
   const coverPaths = (trips ?? []).flatMap((t) => (t.cover_path ? [t.cover_path] : []));
   const { data: coverUrls } = useSignedUrls('trip-media', coverPaths);
+  const { data: engagement } = useTripEngagement((trips ?? []).map((t) => t.id));
+  const savesTotal = (trips ?? []).reduce((sum, t) => sum + (engagement?.[t.id]?.saves ?? 0), 0);
 
   if (isPending) {
     return (
@@ -99,7 +102,7 @@ export function AudienceProfileScreen({ userId }: { userId: string }) {
           <FormError message={followError} />
         </View>
       ) : null}
-      <ProfileStats followers={followerCount ?? 0} trips={trips?.length ?? 0} saves={0} />
+      <ProfileStats followers={followerCount ?? 0} trips={trips?.length ?? 0} saves={savesTotal} />
       <View className="mb-10 mt-5 px-5">
         <Text
           accessibilityRole="header"
@@ -120,6 +123,8 @@ export function AudienceProfileScreen({ userId }: { userId: string }) {
                 subtitle={trip.description ?? 'No description'}
                 state={getTripState(trip)}
                 meta={tripCardMeta(trip)}
+                views={engagement?.[trip.id]?.views ?? 0}
+                saves={engagement?.[trip.id]?.saves ?? 0}
                 coverUrl={trip.cover_path ? coverUrls?.[trip.cover_path] : undefined}
                 tintIndex={index}
               />

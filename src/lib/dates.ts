@@ -27,6 +27,13 @@ export function formatTripDate(iso: string): string {
   return `${d.month} ${d.day} ${d.year}`;
 }
 
+/** Inclusive day count of a trip: '2026-02-08' → '2026-02-24' = 17.
+ *  UTC parse on both ends keeps the difference timezone-proof. */
+export function tripDayCount(startIso: string, endIso: string): number {
+  const ms = Date.parse(`${endIso}T00:00:00Z`) - Date.parse(`${startIso}T00:00:00Z`);
+  return Math.round(ms / 86_400_000) + 1;
+}
+
 /** Collapses shared month/year: 'FEB 12–26 2026', 'FEB 12 – MAR 3 2026',
  *  'DEC 28 2025 – JAN 4 2026'. */
 export function formatTripRange(startIso: string, endIso: string): string {

@@ -89,6 +89,9 @@ export default function TabsLayout() {
           title: 'Profile',
           tabBarAccessibilityLabel: 'Profile',
           tabBarIcon: ({ color, size }) => <Ionicons name="person" color={color} size={size} />,
+          // Profile is strict: leaving the tab resets its stack, so pressing
+          // Profile always lands on the profile landing screen.
+          popToTopOnBlur: true,
         }}
       />
     </Tabs>

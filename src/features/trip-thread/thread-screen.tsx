@@ -1,8 +1,10 @@
+import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useMemo } from 'react';
-import { Alert, FlatList, Text, View } from 'react-native';
+import { Alert, FlatList, Pressable, Text, View } from 'react-native';
 
 import { useSession } from '@/data/auth';
+import { useIsTripSaved, useRecordTripView, useSaveTrip, useUnsaveTrip } from '@/data/engagement';
 import { useSignedPhotoUrls } from '@/data/media';
 import { getPublishBlocker, usePublishTrip, type TripWithOwner } from '@/data/trips';
 import { useTripBudget, useTripUpdates } from '@/data/updates';
@@ -12,6 +14,38 @@ import { useComposerStore } from '@/features/composer/composer-store';
 import { BudgetHeader } from '@/features/trip-thread/budget-header';
 import { UpdateBubble } from '@/features/trip-thread/update-bubble';
 import { formatTripDate } from '@/lib/dates';
+import { colors } from '@/theme/tokens';
+
+/** Save/Saved toggle for non-owner readers (teal = saves, per brand).
+ *  Nothing renders while the saved state loads. */
+function SavePill({ tripId }: { tripId: string }) {
+  const { data: saved, isPending } = useIsTripSaved(tripId, true);
+  const save = useSaveTrip();
+  const unsave = useUnsaveTrip();
+  const busy = save.isPending || unsave.isPending;
+
+  if (isPending) return null;
+
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={saved ? 'Unsave this trip' : 'Save this trip'}
+      disabled={busy}
+      onPress={() => (saved ? unsave.mutate(tripId) : save.mutate(tripId))}
+      className={`flex-row items-center gap-1 rounded-full px-3 py-1 ${
+        saved ? 'bg-secondary' : 'border border-secondary bg-white'
+      }`}>
+      <Ionicons
+        name={saved ? 'bookmark' : 'bookmark-outline'}
+        size={13}
+        color={saved ? colors.white : colors.secondary}
+      />
+      <Text className={`font-sans-bold text-xs ${saved ? 'text-white' : 'text-secondary'}`}>
+        {saved ? 'Saved' : 'Save'}
+      </Text>
+    </Pressable>
+  );
+}
 
 export function TripThreadScreen({ trip }: { trip: TripWithOwner }) {
   const router = useRouter();
@@ -23,6 +57,9 @@ export function TripThreadScreen({ trip }: { trip: TripWithOwner }) {
   const updatesQuery = useTripUpdates(trip.id);
   const budgetQuery = useTripBudget(trip.id);
   const publish = usePublishTrip();
+
+  // One idempotent view per reader; owners and drafts record nothing.
+  useRecordTripView(trip);
 
   const updates = useMemo(() => updatesQuery.data ?? [], [updatesQuery.data]);
   const photoPaths = useMemo(
@@ -71,9 +108,12 @@ export function TripThreadScreen({ trip }: { trip: TripWithOwner }) {
         refreshing={updatesQuery.isRefetching}
         ListHeaderComponent={
           <View>
-            <Text className="mb-1 font-sans text-sm text-inkMuted">
-              by {trip.owner.display_name} · @{trip.owner.username}
-            </Text>
+            <View className="mb-1 flex-row items-center gap-2">
+              <Text className="flex-1 font-sans text-sm text-inkMuted" numberOfLines={1}>
+                by {trip.owner.display_name} · @{trip.owner.username}
+              </Text>
+              {!isOwner && trip.status === 'published' ? <SavePill tripId={trip.id} /> : null}
+            </View>
             {trip.description ? (
               <Text className="mb-3 font-display-italic text-base text-inkMuted">
                 {trip.description}

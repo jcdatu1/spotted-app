@@ -122,6 +122,86 @@ export type Database = {
         };
         Relationships: [];
       };
+      trip_saves: {
+        Row: {
+          created_at: string;
+          trip_id: string;
+          user_id: string;
+        };
+        Insert: {
+          created_at?: string;
+          trip_id: string;
+          user_id: string;
+        };
+        Update: {
+          created_at?: string;
+          trip_id?: string;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'trip_saves_trip_id_fkey';
+            columns: ['trip_id'];
+            isOneToOne: false;
+            referencedRelation: 'trip_engagement';
+            referencedColumns: ['trip_id'];
+          },
+          {
+            foreignKeyName: 'trip_saves_trip_id_fkey';
+            columns: ['trip_id'];
+            isOneToOne: false;
+            referencedRelation: 'trips';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'trip_saves_user_id_fkey';
+            columns: ['user_id'];
+            isOneToOne: false;
+            referencedRelation: 'profiles';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      trip_views: {
+        Row: {
+          created_at: string;
+          trip_id: string;
+          user_id: string;
+        };
+        Insert: {
+          created_at?: string;
+          trip_id: string;
+          user_id: string;
+        };
+        Update: {
+          created_at?: string;
+          trip_id?: string;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'trip_views_trip_id_fkey';
+            columns: ['trip_id'];
+            isOneToOne: false;
+            referencedRelation: 'trip_engagement';
+            referencedColumns: ['trip_id'];
+          },
+          {
+            foreignKeyName: 'trip_views_trip_id_fkey';
+            columns: ['trip_id'];
+            isOneToOne: false;
+            referencedRelation: 'trips';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'trip_views_user_id_fkey';
+            columns: ['user_id'];
+            isOneToOne: false;
+            referencedRelation: 'profiles';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
       trips: {
         Row: {
           country_codes: string[];
@@ -230,6 +310,13 @@ export type Database = {
             foreignKeyName: 'updates_trip_id_fkey';
             columns: ['trip_id'];
             isOneToOne: false;
+            referencedRelation: 'trip_engagement';
+            referencedColumns: ['trip_id'];
+          },
+          {
+            foreignKeyName: 'updates_trip_id_fkey';
+            columns: ['trip_id'];
+            isOneToOne: false;
             referencedRelation: 'trips';
             referencedColumns: ['id'];
           },
@@ -249,10 +336,35 @@ export type Database = {
             foreignKeyName: 'updates_trip_id_fkey';
             columns: ['trip_id'];
             isOneToOne: false;
+            referencedRelation: 'trip_engagement';
+            referencedColumns: ['trip_id'];
+          },
+          {
+            foreignKeyName: 'updates_trip_id_fkey';
+            columns: ['trip_id'];
+            isOneToOne: false;
             referencedRelation: 'trips';
             referencedColumns: ['id'];
           },
         ];
+      };
+      trip_engagement: {
+        Row: {
+          save_count: number | null;
+          trip_id: string | null;
+          view_count: number | null;
+        };
+        Insert: {
+          save_count?: never;
+          trip_id?: string | null;
+          view_count?: never;
+        };
+        Update: {
+          save_count?: never;
+          trip_id?: string | null;
+          view_count?: never;
+        };
+        Relationships: [];
       };
     };
     Functions: {

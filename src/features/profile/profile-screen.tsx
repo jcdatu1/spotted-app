@@ -4,6 +4,8 @@ import type { ReactNode } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import type { TripEngagement } from '@/data/engagement';
+import { useTripEngagement } from '@/data/engagement';
 import { useFollowerCount } from '@/data/follows';
 import type { Profile } from '@/data/profiles';
 import { profileMediaUrl, useMyProfile } from '@/data/profiles';
@@ -83,7 +85,8 @@ function Stat({ value, label, valueClass }: { value: number; label: string; valu
   );
 }
 
-/** Saves stays 0 until that capability ships; followers and trips are real counts. */
+/** All three are real counts: followers from the follows edge, saves summed
+ *  across the user's trips (trip-engagement), trips from the list length. */
 export function ProfileStats({
   followers,
   trips,
@@ -122,9 +125,11 @@ function StartTripCard() {
 function ProfileTripsSection({
   trips,
   isPending,
+  engagement,
 }: {
   trips: TripWithStops[] | undefined;
   isPending: boolean;
+  engagement: Record<string, TripEngagement> | undefined;
 }) {
   const coverPaths = (trips ?? []).flatMap((t) => (t.cover_path ? [t.cover_path] : []));
   const { data: coverUrls } = useSignedUrls('trip-media', coverPaths);
@@ -149,7 +154,8 @@ function ProfileTripsSection({
                   subtitle={trip.description ?? 'No description'}
                   state={getTripState(trip)}
                   meta={tripCardMeta(trip)}
-                  stops={trip.stops}
+                  views={engagement?.[trip.id]?.views ?? 0}
+                  saves={engagement?.[trip.id]?.saves ?? 0}
                   coverUrl={trip.cover_path ? coverUrls?.[trip.cover_path] : undefined}
                   tintIndex={index}
                 />
@@ -183,6 +189,8 @@ export function ProfileScreen({ coversStatusBar = true }: { coversStatusBar?: bo
   const { data: profile, isPending, error } = useMyProfile();
   const { data: trips, isPending: tripsPending } = useMyTrips();
   const { data: followerCount } = useFollowerCount(profile?.id);
+  const { data: engagement } = useTripEngagement((trips ?? []).map((t) => t.id));
+  const savesTotal = (trips ?? []).reduce((sum, t) => sum + (engagement?.[t.id]?.saves ?? 0), 0);
 
   if (isPending) {
     return (
@@ -217,8 +225,8 @@ export function ProfileScreen({ coversStatusBar = true }: { coversStatusBar?: bo
           </Pressable>
         }
       />
-      <ProfileStats followers={followerCount ?? 0} trips={trips?.length ?? 0} saves={0} />
-      <ProfileTripsSection trips={trips} isPending={tripsPending} />
+      <ProfileStats followers={followerCount ?? 0} trips={trips?.length ?? 0} saves={savesTotal} />
+      <ProfileTripsSection trips={trips} isPending={tripsPending} engagement={engagement} />
       <View className="mb-10" />
     </ScrollView>
   );

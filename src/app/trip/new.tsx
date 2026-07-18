@@ -1,4 +1,4 @@
-import { router, type Href } from 'expo-router';
+import { router } from 'expo-router';
 import { useState } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, Text } from 'react-native';
 
@@ -31,16 +31,18 @@ export default function NewTripScreen() {
           onSubmit={(input) => {
             setError(null);
             create.mutate(input, {
-              // Group-qualified: from the root stack a bare /trip/[id] would
-              // resolve into the first shared group alphabetically (Discover);
-              // a fresh trip belongs in the owner's Profile tab context.
-              // Href cast: .expo/types/router.d.ts only regenerates on a dev
-              // server restart, so it can lag behind route moves.
-              onSuccess: (trip) =>
-                router.replace({
-                  pathname: '/(tabs)/(profile)/trip/[id]',
-                  params: { id: trip.id },
-                } as unknown as Href),
+              // Every step explicit — this flow runs from the ROOT stack,
+              // where nothing can be left to resolution rules: a bare
+              // /trip/[id] push resolves into the first shared group
+              // alphabetically (Discover), and a group-qualified replace
+              // swaps out the tab's root screen (both stranded users).
+              // Dismiss the form, land the Profile tab on its root, then
+              // push the thread above it so back always returns to Profile.
+              onSuccess: (trip) => {
+                router.back();
+                router.navigate('/(tabs)/(profile)/profile');
+                router.push({ pathname: '/(tabs)/(profile)/trip/[id]', params: { id: trip.id } });
+              },
               onError: (e) => setError(e instanceof Error ? e.message : 'Could not create trip.'),
             });
           }}

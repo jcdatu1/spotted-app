@@ -2,10 +2,12 @@ import { Link } from 'expo-router';
 import { FlatList, Pressable, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { profileMediaUrl } from '@/data/profiles';
 import { useSignedUrls } from '@/data/storage';
 import { getTripState, usePublishedTrips } from '@/data/trips';
 import { SpottedWordmark } from '@/features/brand/wordmark';
-import { TripCard, tripCardMeta } from '@/features/trips/trip-card';
+import { FeedTripCard, tripCardMeta } from '@/features/trips/trip-card';
+import { tripDayCount } from '@/lib/dates';
 
 export default function HomeScreen() {
   const { data: trips, isPending, refetch, isRefetching } = usePublishedTrips();
@@ -31,11 +33,19 @@ export default function HomeScreen() {
         renderItem={({ item, index }) => (
           <Link href={{ pathname: '/trip/[id]', params: { id: item.id } }} asChild>
             <Pressable accessibilityRole="button" accessibilityLabel={`Open trip ${item.title}`}>
-              <TripCard
+              <FeedTripCard
                 title={item.title}
-                subtitle={`by ${item.owner.display_name}`}
-                state={getTripState(item)}
                 meta={tripCardMeta(item)}
+                creatorName={item.owner.display_name}
+                creatorUsername={item.owner.username}
+                avatarUrl={profileMediaUrl(item.owner.avatar_path) ?? undefined}
+                state={getTripState(item)}
+                stops={item.stops}
+                days={
+                  item.start_date && item.end_date
+                    ? tripDayCount(item.start_date, item.end_date)
+                    : undefined
+                }
                 coverUrl={item.cover_path ? coverUrls?.[item.cover_path] : undefined}
                 tintIndex={index}
               />
