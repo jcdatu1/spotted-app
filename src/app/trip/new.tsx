@@ -1,4 +1,4 @@
-import { router } from 'expo-router';
+import { router, type Href } from 'expo-router';
 import { useState } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, Text } from 'react-native';
 
@@ -31,8 +31,16 @@ export default function NewTripScreen() {
           onSubmit={(input) => {
             setError(null);
             create.mutate(input, {
+              // Group-qualified: from the root stack a bare /trip/[id] would
+              // resolve into the first shared group alphabetically (Discover);
+              // a fresh trip belongs in the owner's Profile tab context.
+              // Href cast: .expo/types/router.d.ts only regenerates on a dev
+              // server restart, so it can lag behind route moves.
               onSuccess: (trip) =>
-                router.replace({ pathname: '/trip/[id]', params: { id: trip.id } }),
+                router.replace({
+                  pathname: '/(tabs)/(profile)/trip/[id]',
+                  params: { id: trip.id },
+                } as unknown as Href),
               onError: (e) => setError(e instanceof Error ? e.message : 'Could not create trip.'),
             });
           }}

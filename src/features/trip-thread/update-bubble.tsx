@@ -6,12 +6,13 @@ import type { Update } from '@/data/updates';
 import { formatMoney } from '@/lib/money';
 import { colors } from '@/theme/tokens';
 
-function Timestamp({ iso }: { iso: string }) {
+function Timestamp({ iso, own }: { iso: string; own: boolean }) {
   const date = new Date(iso);
   const day = date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
   const time = date.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
   return (
-    <Text className="mt-1.5 font-mono text-2xs uppercase text-inkFaint">{`${day} · ${time}`}</Text>
+    <Text
+      className={`mt-1.5 font-mono text-2xs uppercase text-inkFaint ${own ? 'self-end' : ''}`}>{`${day} · ${time}`}</Text>
   );
 }
 
@@ -22,25 +23,30 @@ function Caption({ body }: { body: string | null }) {
 
 type UpdateBubbleProps = {
   update: Update;
+  /** True when the viewer owns the trip — the whole thread reads as outbound
+   *  (right-aligned, SMS-style); readers see it inbound (left). Alignment
+   *  only; per-type card styling is identical on both sides. */
+  own: boolean;
   /** Resolved signed URL for photo updates; undefined while loading. */
   photoUrl?: string;
 };
 
-export function UpdateBubble({ update, photoUrl }: UpdateBubbleProps) {
+export function UpdateBubble({ update, own, photoUrl }: UpdateBubbleProps) {
+  const container = `mb-3 max-w-[85%] ${own ? 'self-end' : 'self-start'}`;
   switch (update.type) {
     case 'note':
       return (
-        <View className="mb-3 max-w-[85%] self-start">
+        <View className={container}>
           <View className="rounded-bubble border border-border bg-surfaceRaised px-4 py-3">
             <Text className="font-sans text-base text-ink">{update.body}</Text>
           </View>
-          <Timestamp iso={update.happenedAt} />
+          <Timestamp iso={update.happenedAt} own={own} />
         </View>
       );
 
     case 'photo':
       return (
-        <View className="mb-3 max-w-[85%] self-start">
+        <View className={container}>
           <View className="overflow-hidden rounded-bubble border border-border bg-white">
             {photoUrl ? (
               <Image
@@ -58,13 +64,13 @@ export function UpdateBubble({ update, photoUrl }: UpdateBubbleProps) {
               <Text className="px-3 py-2 font-sans text-sm text-ink">{update.body}</Text>
             ) : null}
           </View>
-          <Timestamp iso={update.happenedAt} />
+          <Timestamp iso={update.happenedAt} own={own} />
         </View>
       );
 
     case 'purchase':
       return (
-        <View className="mb-3 max-w-[85%] self-start">
+        <View className={container}>
           <View className="rounded-bubble border border-secondaryTint bg-white p-4">
             <View className="flex-row items-center gap-2">
               <View className="h-7 w-7 items-center justify-center rounded-full bg-secondaryTint">
@@ -79,13 +85,13 @@ export function UpdateBubble({ update, photoUrl }: UpdateBubbleProps) {
             </Text>
             <Caption body={update.body} />
           </View>
-          <Timestamp iso={update.happenedAt} />
+          <Timestamp iso={update.happenedAt} own={own} />
         </View>
       );
 
     case 'attraction':
       return (
-        <View className="mb-3 max-w-[85%] self-start">
+        <View className={container}>
           <View className="rounded-bubble border border-accentTint bg-white p-4">
             <View className="flex-row items-center gap-2">
               <View className="h-7 w-7 items-center justify-center rounded-full bg-accentTint">
@@ -102,7 +108,7 @@ export function UpdateBubble({ update, photoUrl }: UpdateBubbleProps) {
             ) : null}
             <Caption body={update.body} />
           </View>
-          <Timestamp iso={update.happenedAt} />
+          <Timestamp iso={update.happenedAt} own={own} />
         </View>
       );
   }

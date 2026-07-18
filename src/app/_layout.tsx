@@ -17,7 +17,8 @@ import { useEffect } from 'react';
 
 import { SessionProvider, useSession } from '@/data/auth';
 import { initObservability } from '@/lib/observability';
-import { colors, fontFamily } from '@/theme/tokens';
+import { pushedHeader } from '@/theme/navigation';
+import { colors } from '@/theme/tokens';
 
 initObservability();
 
@@ -26,18 +27,6 @@ initObservability();
 SplashScreen.preventAutoHideAsync();
 
 const queryClient = new QueryClient();
-
-/** Pushed (non-root) screens show the native themed header — the app's
- *  visible-back-button convention. Chevron-only: without a back title, iOS
- *  would fall back to the previous route's name ("(tabs)"). */
-const pushedHeader = {
-  headerShown: true,
-  headerShadowVisible: false,
-  headerStyle: { backgroundColor: colors.surface },
-  headerTintColor: colors.ink,
-  headerTitleStyle: { fontFamily: fontFamily.sansSemibold },
-  headerBackButtonDisplayMode: 'minimal',
-} as const;
 
 function RootNavigator({ fontsReady }: { fontsReady: boolean }) {
   const { session, isLoading } = useSession();
@@ -66,8 +55,6 @@ function RootNavigator({ fontsReady }: { fontsReady: boolean }) {
           name="profile/edit"
           options={{ ...pushedHeader, headerTitle: 'Edit profile' }}
         />
-        <Stack.Screen name="trip/[id]/index" options={{ ...pushedHeader, headerTitle: '' }} />
-        <Stack.Screen name="user/[id]" options={{ ...pushedHeader, headerTitle: '' }} />
         <Stack.Screen
           name="trip/[id]/edit"
           options={{ ...pushedHeader, headerTitle: 'Edit trip' }}

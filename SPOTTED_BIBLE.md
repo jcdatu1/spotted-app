@@ -85,13 +85,14 @@ Key product stances:
 - Trip cards: cover thumbnail (signed URL, tint-cycle fallback), three-state chip (Draft/Live/Completed), Space Mono date-range meta line.
 
 **Trip thread + composer** ([src/features/trip-thread/](src/features/trip-thread/), [src/features/composer/](src/features/composer/))
-- Chat-style FlatList of update bubbles ordered by `happened_at` then `created_at`; pull-to-refresh (no realtime in MVP).
-- Owner-only composer bar with four type buttons: Note (body ≤1000), Photo (picked + resized image, optional caption), Purchase (vendor, amount, currency), Place/attraction (place name, optional entry fee).
+- Chat-style FlatList of update bubbles ordered by `happened_at` then `created_at`; pull-to-refresh (no realtime in MVP). Alignment is viewer-relative (SMS-style): the owner sees their thread right-aligned (outbound), everyone else left-aligned — `own` prop on `UpdateBubble`, alignment only, identical card styling both sides.
+- Owner posting goes through the tab bar's center `+` button: on an owned thread (draft or published) it opens a type picker (Note / Photo / Purchase / Place), then the chosen form as a bottom sheet (`ComposerSheet` — plain RN `Modal`, renders above the tab bar, no sheet dependency). There is no inline composer bar. The thread advertises itself via `useFocusEffect` → `composer-store.ts` (zustand), which the tab button reads; any blur clears it.
+- Forms: Note (body ≤1000), Photo (picked + resized image, optional caption), Purchase (vendor, amount, currency), Place/attraction (place name, optional entry fee).
 - Currency picker chips (`THB, USD, PHP, EUR, JPY, GBP, KRW, SGD`); composer defaults to the thread's last-used currency (fallback USD).
 - Draft banner on owner-viewed drafts with Edit details + Publish actions and publish-blocker messaging.
 - Budget header showing per-currency totals from the `trip_budgets` view.
 
-**Home tab** ([src/app/(tabs)/index.tsx](src/app/(tabs)/index.tsx))
+**Home tab** ([src/app/(tabs)/(home)/index.tsx](src/app/(tabs)/(home)/index.tsx))
 - Feed of the 50 most recently published trips (all users), newest first, with trip cards linking into threads. (The scaffold-era backend health card was removed 2026-07-18; `useHealthCheck` in [src/data/health.ts](src/data/health.ts) is kept dormant for a future diagnostics surface.)
 
 **Discover tab** ([src/features/discover/](src/features/discover/), [src/data/search.ts](src/data/search.ts))
@@ -109,7 +110,9 @@ Key product stances:
 - Account Management section with a Sign out row (coral label). Its heading + row-card markup is the template for future settings sections — extract a shared component when a second section arrives.
 
 **Tab shell** ([src/app/(tabs)/_layout.tsx](src/app/(tabs)/_layout.tsx))
-- Five-slot brand nav: Home, Discover, raised coral center `+` button (opens `/trip/new`; its `create` route is a dummy), Settings, Profile.
+- Five-slot brand nav: Home, Discover, raised coral center `+` button (its `create` route is a dummy), Settings, Profile.
+- Home/Discover/Profile are per-tab **stacks** (route groups); trip threads and user profiles are **shared routes** in `(home,discover,profile)/` — they push inside the current tab, keeping the tab bar visible and the tab highlighted. Form screens (`trip/new`, `trip/[id]/edit`, `profile/edit`) stay full-screen root-stack pushes.
+- The `+` button is context-aware: on a trip thread the signed-in user owns it opens the update-type picker (via `composer-store.ts`); everywhere else it pushes `/trip/new`.
 
 ### Placeholder screens (UI only, no functionality)
 
@@ -193,7 +196,8 @@ src/app/         expo-router routes (thin)
 src/features/    feature components:  auth/ brand/ composer/ profile/ trip-thread/ trips/
 src/data/        typed data layer:    client auth profiles trips updates media storage search health types
 src/lib/         utilities:           countries dates images money observability
-src/theme/       tokens.ts — single source of truth for color/type/spacing/radius
+src/theme/       tokens.ts (single source of truth for color/type/spacing/radius),
+                 navigation.ts (shared pushedHeader options)
 src/global.css   Tailwind entry
 supabase/        CLI config + migrations/
 openspec/        specs + change proposals (OpenSpec, spec-driven schema)
@@ -215,23 +219,27 @@ Signed OUT ──▶ (auth)
                ├─ sign-in      pushed, back button
                └─ sign-up      pushed, back button
 
-Signed IN ──▶ (tabs)                       ← headerless root tabs
-               ├─ index        Home feed
-               ├─ discover     search (users / trips / countries)
-               ├─ create       dummy route — center + button pushes /trip/new
-               ├─ settings     Account Management → Sign out
-               └─ profile      own profile + trip list
-              trip/new         "New trip"     (pushed, themed native header)
-              trip/[id]/index  thread         (pushed, empty title)
-              trip/[id]/edit   "Edit trip"    (pushed, draft-only)
-              profile/edit     "Edit profile" (pushed)
-              user/[id]        audience profile (pushed, empty title; Follow/Unfollow;
-                               own id → owner ProfileScreen inline)
+Signed IN ──▶ (tabs)                       ← headerless root tabs; each content tab is a STACK
+               ├─ (home)/       Stack: index (Home feed) + shared routes
+               ├─ (discover)/   Stack: discover (search) + shared routes
+               ├─ create        dummy route — center + button is context-aware:
+               │                owned thread → update-type picker, else pushes /trip/new
+               ├─ settings      Account Management → Sign out
+               └─ (profile)/    Stack: profile (own profile + trips) + shared routes
+              (home,discover,profile)/     ← SHARED routes, one file mounted in all three
+               ├─ trip/[id]/index  thread   (pushed IN-TAB, tab bar stays, empty title)
+               └─ user/[id]        audience profile (pushed IN-TAB; Follow/Unfollow;
+                                   own id → owner ProfileScreen inline)
+              trip/new         "New trip"     (root push, full-screen, themed header)
+              trip/[id]/edit   "Edit trip"    (root push, draft-only)
+              profile/edit     "Edit profile" (root push)
 ```
 
-**Convention: every pushed (non-root) screen shows a VISIBLE BACK BUTTON** — the themed native stack header (`pushedHeader` in the root layout) unless the screen supplies its own back affordance. Root tabs and close-button modals are exempt. Back buttons are **chevron-only** (`headerBackButtonDisplayMode: 'minimal'`) — without it, iOS shows the previous route's name ("(tabs)") as the back label.
+Pushing `/trip/[id]` or `/user/[id]` from a focused tab stays in that tab's group (verified against Expo Router docs); deep links from outside pick the first group alphabetically (`(discover)`). Root-stack screens navigating to a shared route must group-qualify (e.g. `trip/new` replaces to `/(tabs)/(profile)/trip/[id]`) or they land in `(discover)`.
 
-⚠️ Route-name gotcha: because `trip/[id]` is a **directory**, the root-layout screen names must be `trip/[id]/index` and `trip/[id]/edit` — a `Stack.Screen name="trip/[id]"` would silently drop its header options.
+**Convention: every pushed (non-root) screen shows a VISIBLE BACK BUTTON** — the themed native stack header (`pushedHeader` in [src/theme/navigation.ts](src/theme/navigation.ts), applied by the root layout per screen and by shared-route files inline via `<Stack.Screen options>`) unless the screen supplies its own back affordance. Root tabs and close-button modals are exempt. Back buttons are **chevron-only** (`headerBackButtonDisplayMode: 'minimal'`) — without it, iOS shows the previous route's name ("(tabs)") as the back label.
+
+⚠️ Route-name gotcha: because `trip/[id]` is a **directory**, layout-level screen names must be `trip/[id]/index` etc. — a `Stack.Screen name="trip/[id]"` silently drops its header options. The shared-route files sidestep this by setting `pushedHeader` **inline** in the route file, so options survive route moves.
 
 ---
 
@@ -530,6 +538,7 @@ All product work is planned as OpenSpec changes in [openspec/](openspec/) (`spec
 | `update-display-cleanup` | archived 2026-07-18 | Health card removal, sign-out → Settings, compact CTA, `ImageInputField` pattern, chevron-only back, country-picker sheet |
 | `add-discover-search` | archived 2026-07-18 | Discover search (users/trips/countries, live results, recents), audience profile `/user/[id]` |
 | `add-follows` | **active** | Follows edge table + RLS, Follow/Unfollow on audience profiles, real follower counts, `/user/[id]` self-view → owner screen |
+| `rework-trip-thread-shell` | **active** | Persistent tab bar (per-tab stacks + shared routes), context-aware `+` button, composer sheet replaces inline bar, viewer-relative thread alignment |
 
 ---
 
@@ -545,6 +554,8 @@ Planned sequence (one OpenSpec change each), from config.yaml:
     add-trip-creator, update-profile-cta-and-bottom-nav)
 ✅ add-discover-search            → Discover search + audience profiles (interleaved)
 ✅ add-follows                    → follows edge + Follow/Unfollow + real follower counts
+✅ (interleaved: rework-trip-thread-shell → persistent tab bar, + composer sheet,
+    thread alignment)
 ⬜ discovery follow-on            → trending/recommendations on Discover, follower lists
 ⬜ add-reactions-and-saves        → makes profile saves stat real; passport surfaces
 ⬜ add-itinerary-copy             → the copy-with-budget headline feature
@@ -560,7 +571,9 @@ Planned sequence (one OpenSpec change each), from config.yaml:
 ## 17. Known Quirks & Gotchas
 
 - **AGENTS.md says Expo v57 docs, but the repo runs SDK 54.** Prefer repo-proven patterns over v57 docs when they conflict.
-- **expo-router directory routes**: `trip/[id].tsx` → `trip/[id]/` directory means root-layout `Stack.Screen` names must be `trip/[id]/index` etc., or header options silently drop.
+- **expo-router directory routes**: `trip/[id].tsx` → `trip/[id]/` directory means layout-level `Stack.Screen` names must be `trip/[id]/index` etc., or header options silently drop. Shared-route files avoid this by setting header options inline.
+- **Typed-routes file can corrupt during bulk route moves**: a running dev server regenerates `.expo/types/router.d.ts` incrementally and can leave a mixed old/new union (even non-route `src/` files as `/../` entries) after files move. Delete the file and restart `expo start` to regenerate; `npx expo export` bundles fine but does **not** regenerate it.
+- **Shared-route deep links** resolve to the first group alphabetically (`(discover)`); root-stack screens must group-qualify hrefs into shared routes (see Navigation Map).
 - **Prettier CRLF drift** on Windows: `format:check` can fail on untouched files from CRLF checkout; `npm run format` fixes with an empty content diff.
 - **Expo Go "stuck on opening project"**: node.exe firewall rules are Public-only while the network is Private — fix elevated, or use `--tunnel`.
 - **Windows dir moves**: bash `mv` on directories hits EPERM; use PowerShell `Move-Item`.
@@ -583,3 +596,4 @@ Planned sequence (one OpenSpec change each), from config.yaml:
 - **2026-07-18** — `add-discover-search` implemented: Discover tab rebuilt as live search (countries client-side, users + published trips via escaped ILIKE, 300ms debounce, min 2 chars), country drill-down (`.contains()` on `country_codes`), device-local recent searches (first Zustand usage, persisted via AsyncStorage), and the read-only audience profile at `/user/[id]` (`ProfileHeader` gained `coversStatusBar` prop and is now exported with `ProfileStats`). Sections 3, 6, 7, 10, 15, 16 updated.
 - **2026-07-18** — `add-discover-search` archived after device verification; delta specs synced to main (new `discovery` capability spec; audience-profile requirement added to `user-profiles`).
 - **2026-07-18** — `add-follows` implemented: `follows` edge table (migration 5 — composite PK, self-follow CHECK, RLS read-all/write-own, followee index), `src/data/follows.ts` data layer, Follow (coral) / Unfollow (secondary) in the audience profile's action slot, real follower counts on both profile surfaces (saves still 0), and `/user/[id]` self-view now rendering the owner `ProfileScreen` inline (`coversStatusBar` prop). Sections 3, 7, 8, 9, 10, 15, 16, 17 updated.
+- **2026-07-18** — `rework-trip-thread-shell` implemented: `(tabs)` restructured into per-tab stacks (`(home)`, `(discover)`, `(profile)`) with `trip/[id]` + `user/[id]` as shared routes in `(home,discover,profile)/` so the tab bar persists on threads and profiles; `pushedHeader` extracted to `src/theme/navigation.ts` (shared routes apply it inline); center `+` button context-aware via new `composer-store.ts` (zustand) — owned thread → type picker + `ComposerSheet` (RN `Modal` bottom sheet; `composer-bar.tsx` deleted), elsewhere → `/trip/new`; thread bubbles viewer-relative aligned (`own` prop, owner = right/outbound); root-stack `replace` calls into the thread group-qualified to `/(tabs)/(profile)/trip/[id]`. Sections 3, 6, 7, 15, 16, 17 updated.

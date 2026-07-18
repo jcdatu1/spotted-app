@@ -3,6 +3,7 @@ import { ActivityIndicator, Text, View } from 'react-native';
 
 import { useTrip } from '@/data/trips';
 import { TripThreadScreen } from '@/features/trip-thread/thread-screen';
+import { pushedHeader } from '@/theme/navigation';
 import { colors } from '@/theme/tokens';
 
 export default function TripRoute() {
@@ -12,7 +13,7 @@ export default function TripRoute() {
 
   return (
     <>
-      <Stack.Screen options={{ headerTitle: trip?.title ?? '' }} />
+      <Stack.Screen options={{ ...pushedHeader, headerTitle: trip?.title ?? '' }} />
       {isPending ? (
         <View className="flex-1 items-center justify-center bg-surface">
           <ActivityIndicator color={colors.primary} />

@@ -2,18 +2,22 @@ import { Ionicons } from '@expo/vector-icons';
 import { Tabs, useRouter } from 'expo-router';
 import { Pressable, View } from 'react-native';
 
+import { useComposerStore } from '@/features/composer/composer-store';
 import { colors, fontFamily, fontSize } from '@/theme/tokens';
 
-/** Raised coral center button (mockup BOTTOM NAV); opens the trip creation
- *  flow instead of focusing its dummy route. */
-function NewTripTabButton() {
+/** Raised coral center button (mockup BOTTOM NAV); context-aware instead of
+ *  focusing its dummy route — on a trip thread the signed-in user owns it
+ *  opens the update-type picker, everywhere else the trip creation flow. */
+function CenterActionButton() {
   const router = useRouter();
+  const ownedTrip = useComposerStore((s) => s.ownedTrip);
+  const openPicker = useComposerStore((s) => s.openPicker);
   return (
     <View style={{ flex: 1, alignItems: 'center' }}>
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel="New trip"
-        onPress={() => router.push('/trip/new')}
+        accessibilityLabel={ownedTrip ? 'Add update' : 'New trip'}
+        onPress={() => (ownedTrip ? openPicker() : router.push('/trip/new'))}
         style={{
           width: 56,
           height: 56,
@@ -49,7 +53,7 @@ export default function TabsLayout() {
         sceneStyle: { backgroundColor: colors.surface },
       }}>
       <Tabs.Screen
-        name="index"
+        name="(home)"
         options={{
           title: 'Home',
           tabBarAccessibilityLabel: 'Home',
@@ -57,7 +61,7 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
-        name="discover"
+        name="(discover)"
         options={{
           title: 'Discover',
           tabBarAccessibilityLabel: 'Discover',
@@ -68,7 +72,7 @@ export default function TabsLayout() {
         name="create"
         options={{
           title: '',
-          tabBarButton: () => <NewTripTabButton />,
+          tabBarButton: () => <CenterActionButton />,
         }}
       />
       <Tabs.Screen
@@ -80,7 +84,7 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
-        name="profile"
+        name="(profile)"
         options={{
           title: 'Profile',
           tabBarAccessibilityLabel: 'Profile',

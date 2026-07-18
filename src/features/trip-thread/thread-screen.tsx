@@ -1,13 +1,14 @@
-import { useRouter } from 'expo-router';
-import { useMemo } from 'react';
-import { Alert, FlatList, KeyboardAvoidingView, Platform, Text, View } from 'react-native';
+import { useFocusEffect, useRouter } from 'expo-router';
+import { useCallback, useMemo } from 'react';
+import { Alert, FlatList, Text, View } from 'react-native';
 
 import { useSession } from '@/data/auth';
 import { useSignedPhotoUrls } from '@/data/media';
 import { getPublishBlocker, usePublishTrip, type TripWithOwner } from '@/data/trips';
 import { useTripBudget, useTripUpdates } from '@/data/updates';
 import { AuthButton } from '@/features/auth/form';
-import { ComposerBar } from '@/features/composer/composer-bar';
+import { ComposerSheet } from '@/features/composer/composer-sheet';
+import { useComposerStore } from '@/features/composer/composer-store';
 import { BudgetHeader } from '@/features/trip-thread/budget-header';
 import { UpdateBubble } from '@/features/trip-thread/update-bubble';
 import { formatTripDate } from '@/lib/dates';
@@ -38,6 +39,18 @@ export function TripThreadScreen({ trip }: { trip: TripWithOwner }) {
     return 'USD';
   }, [updates]);
 
+  // While the owner's own thread is focused, the tab bar's + button becomes
+  // "Add update" (opens the type picker) instead of "New trip".
+  const registerOwnedTrip = useComposerStore((s) => s.registerOwnedTrip);
+  const clearOwnedTrip = useComposerStore((s) => s.clearOwnedTrip);
+  useFocusEffect(
+    useCallback(() => {
+      if (!isOwner) return;
+      registerOwnedTrip({ tripId: trip.id, defaultCurrency: lastUsedCurrency });
+      return clearOwnedTrip;
+    }, [isOwner, trip.id, lastUsedCurrency, registerOwnedTrip, clearOwnedTrip]),
+  );
+
   function confirmPublish() {
     Alert.alert('Publish this trip?', 'Anyone on Spotted will be able to read it.', [
       { text: 'Cancel', style: 'cancel' },
@@ -46,9 +59,7 @@ export function TripThreadScreen({ trip }: { trip: TripWithOwner }) {
   }
 
   return (
-    <KeyboardAvoidingView
-      className="flex-1 bg-surface"
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <View className="flex-1 bg-surface">
       <FlatList
         className="flex-1 px-4 pt-3"
         data={updates}
@@ -111,6 +122,7 @@ export function TripThreadScreen({ trip }: { trip: TripWithOwner }) {
         renderItem={({ item }) => (
           <UpdateBubble
             update={item}
+            own={isOwner}
             photoUrl={item.type === 'photo' ? photoUrls?.[item.mediaPath] : undefined}
           />
         )}
@@ -119,7 +131,7 @@ export function TripThreadScreen({ trip }: { trip: TripWithOwner }) {
             <View className="rounded-xl border border-border bg-surfaceRaised p-4">
               <Text className="font-sans text-sm text-inkMuted">
                 {isOwner
-                  ? 'No updates yet — post your first one below.'
+                  ? 'No updates yet — tap + below to post your first one.'
                   : 'No updates yet. Check back soon.'}
               </Text>
             </View>
@@ -127,7 +139,7 @@ export function TripThreadScreen({ trip }: { trip: TripWithOwner }) {
         }
         ListFooterComponent={<View className="h-4" />}
       />
-      {isOwner ? <ComposerBar tripId={trip.id} defaultCurrency={lastUsedCurrency} /> : null}
-    </KeyboardAvoidingView>
+      {isOwner ? <ComposerSheet tripId={trip.id} defaultCurrency={lastUsedCurrency} /> : null}
+    </View>
   );
 }
