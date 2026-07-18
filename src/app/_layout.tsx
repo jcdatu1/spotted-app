@@ -67,6 +67,7 @@ function RootNavigator({ fontsReady }: { fontsReady: boolean }) {
           options={{ ...pushedHeader, headerTitle: 'Edit profile' }}
         />
         <Stack.Screen name="trip/[id]/index" options={{ ...pushedHeader, headerTitle: '' }} />
+        <Stack.Screen name="user/[id]" options={{ ...pushedHeader, headerTitle: '' }} />
         <Stack.Screen
           name="trip/[id]/edit"
           options={{ ...pushedHeader, headerTitle: 'Edit trip' }}

@@ -15,7 +15,7 @@ export type TripWithStops = Trip & { stops: number };
  *  time, never stored, so trips roll over with no scheduled transitions. */
 export type TripState = 'draft' | 'live' | 'completed';
 
-const OWNER_JOIN = '*, owner:profiles!trips_owner_id_fkey(username, display_name)';
+export const OWNER_JOIN = '*, owner:profiles!trips_owner_id_fkey(username, display_name)';
 
 const COVER_BUCKET = 'trip-media';
 
@@ -155,8 +155,50 @@ export async function listPublishedTrips(): Promise<TripWithOwner[]> {
   return data;
 }
 
+/** Another user's public trips — RLS would hide drafts anyway; the status
+ *  filter states the intent and keeps the owner's own drafts out too. */
+export async function listPublishedTripsByOwner(ownerId: string): Promise<Trip[]> {
+  const client = getSupabaseClient();
+  const { data, error } = await client
+    .from('trips')
+    .select('*')
+    .eq('owner_id', ownerId)
+    .eq('status', 'published')
+    .order('published_at', { ascending: false });
+  if (error) throw new Error(error.message);
+  return data;
+}
+
+export async function listPublishedTripsByCountry(code: string): Promise<TripWithOwner[]> {
+  const client = getSupabaseClient();
+  const { data, error } = await client
+    .from('trips')
+    .select(OWNER_JOIN)
+    .eq('status', 'published')
+    .contains('country_codes', [code])
+    .order('published_at', { ascending: false })
+    .limit(50);
+  if (error) throw new Error(error.message);
+  return data;
+}
+
 export function useTrip(id: string) {
   return useQuery({ queryKey: ['trips', 'detail', id], queryFn: () => getTrip(id) });
+}
+
+export function usePublishedTripsByOwner(ownerId: string) {
+  return useQuery({
+    queryKey: ['trips', 'published', 'owner', ownerId],
+    queryFn: () => listPublishedTripsByOwner(ownerId),
+  });
+}
+
+export function usePublishedTripsByCountry(code: string | undefined) {
+  return useQuery({
+    queryKey: ['trips', 'published', 'country', code],
+    queryFn: () => listPublishedTripsByCountry(code!),
+    enabled: !!code,
+  });
 }
 
 export function useMyTrips() {

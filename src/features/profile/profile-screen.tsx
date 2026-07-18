@@ -17,9 +17,20 @@ const AVATAR_SIZE = 88;
 
 /** Cover band (photo when set, teal when not) + overlapping avatar + identity
  *  block. `action` is the slot the audience view will fill with a Follow
- *  button (holder: Edit profile). */
-function ProfileHeader({ profile, action }: { profile: Profile; action: ReactNode }) {
+ *  button (holder: Edit profile). `coversStatusBar` extends the band under
+ *  the status bar — false on pushed screens whose native header already
+ *  clears it (audience profile). */
+export function ProfileHeader({
+  profile,
+  action,
+  coversStatusBar = true,
+}: {
+  profile: Profile;
+  action: ReactNode;
+  coversStatusBar?: boolean;
+}) {
   const insets = useSafeAreaInsets();
+  const bandHeight = 84 + (coversStatusBar ? insets.top : 0);
   const initial = profile.display_name.trim().charAt(0).toUpperCase() || '@';
   const coverUrl = profileMediaUrl(profile.cover_path);
   const avatarUrl = profileMediaUrl(profile.avatar_path);
@@ -27,9 +38,9 @@ function ProfileHeader({ profile, action }: { profile: Profile; action: ReactNod
   return (
     <View>
       {coverUrl ? (
-        <Image source={{ uri: coverUrl }} style={{ height: insets.top + 84 }} contentFit="cover" />
+        <Image source={{ uri: coverUrl }} style={{ height: bandHeight }} contentFit="cover" />
       ) : (
-        <View className="bg-secondary" style={{ height: insets.top + 84 }} />
+        <View className="bg-secondary" style={{ height: bandHeight }} />
       )}
       <View className="px-5" style={{ marginTop: -AVATAR_SIZE / 2 }}>
         <View
@@ -72,7 +83,7 @@ function Stat({ value, label, valueClass }: { value: number; label: string; valu
 }
 
 /** Followers/saves stay 0 until those capabilities ship; trips is the real count. */
-function ProfileStats({
+export function ProfileStats({
   followers,
   trips,
   saves,

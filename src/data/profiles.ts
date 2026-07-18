@@ -93,6 +93,22 @@ export async function isUsernameAvailable(username: string): Promise<boolean> {
   return data;
 }
 
+/** Any user's public profile row (profiles are app-wide readable). */
+export async function getProfileById(id: string): Promise<Profile | null> {
+  const client = getSupabaseClient();
+  const { data, error } = await client.from('profiles').select('*').eq('id', id).maybeSingle();
+  if (error) throw new Error(error.message);
+  return data;
+}
+
+export function useProfile(id: string) {
+  return useQuery({
+    queryKey: ['profiles', 'detail', id],
+    queryFn: () => getProfileById(id),
+    enabled: !!id,
+  });
+}
+
 export function useMyProfile() {
   const { session } = useSession();
   return useQuery({

@@ -94,6 +94,15 @@ Key product stances:
 **Home tab** ([src/app/(tabs)/index.tsx](src/app/(tabs)/index.tsx))
 - Feed of the 50 most recently published trips (all users), newest first, with trip cards linking into threads. (The scaffold-era backend health card was removed 2026-07-18; `useHealthCheck` in [src/data/health.ts](src/data/health.ts) is kept dormant for a future diagnostics surface.)
 
+**Discover tab** ([src/features/discover/](src/features/discover/), [src/data/search.ts](src/data/search.ts))
+- Search input with debounced (300ms, min 2 chars) live search-as-you-type; results in three sections — COUNTRIES (client-side from the static list, instant), USERS (avatar thumbnail + display name + @username), TRIPS (published only, boarding-pass cards).
+- Backend: parallel ILIKE queries (profiles on username/display_name, trips on title/description), capped 10/section, wildcards escaped; hook shape swappable for a ranked RPC / pg_trgm later.
+- Country drill-down: tapping a country lists published trips whose `country_codes` contains it (`.contains()` filter), with a Clear affordance back to the query.
+- Recent searches: device-local Zustand store persisted to AsyncStorage (first Zustand usage in the app — `src/features/discover/search-history.ts`), last 10 distinct terms, shown when input is empty, tap to re-run, clearable.
+
+**Audience profiles** ([src/features/profile/audience-profile-screen.tsx](src/features/profile/audience-profile-screen.tsx))
+- Read-only `/user/[id]` (pushed, chevron back): reuses `ProfileHeader` (action slot empty until follows; `coversStatusBar={false}` since the native header clears the notch) + stats row + published trips only. No drafts, no private fields, no owner actions.
+
 **Settings tab** ([src/app/(tabs)/settings.tsx](src/app/(tabs)/settings.tsx))
 - Account Management section with a Sign out row (coral label). Its heading + row-card markup is the template for future settings sections — extract a shared component when a second section arrives.
 
@@ -102,7 +111,7 @@ Key product stances:
 
 ### Placeholder screens (UI only, no functionality)
 
-- **Discover** — awaits `add-follows-and-discovery`.
+- None currently — Discover gained search in `add-discover-search`; follows/trending still await `add-follows-and-discovery`.
 
 ### Not built yet (see [Roadmap](#16-roadmap))
 
@@ -180,7 +189,7 @@ Mutations invalidate by prefix (e.g. any trip mutation invalidates `['trips']`; 
 ```
 src/app/         expo-router routes (thin)
 src/features/    feature components:  auth/ brand/ composer/ profile/ trip-thread/ trips/
-src/data/        typed data layer:    client auth profiles trips updates media storage health types
+src/data/        typed data layer:    client auth profiles trips updates media storage search health types
 src/lib/         utilities:           countries dates images money observability
 src/theme/       tokens.ts — single source of truth for color/type/spacing/radius
 src/global.css   Tailwind entry
@@ -206,7 +215,7 @@ Signed OUT ──▶ (auth)
 
 Signed IN ──▶ (tabs)                       ← headerless root tabs
                ├─ index        Home feed
-               ├─ discover     placeholder
+               ├─ discover     search (users / trips / countries)
                ├─ create       dummy route — center + button pushes /trip/new
                ├─ settings     Account Management → Sign out
                └─ profile      own profile + trip list
@@ -214,6 +223,7 @@ Signed IN ──▶ (tabs)                       ← headerless root tabs
               trip/[id]/index  thread         (pushed, empty title)
               trip/[id]/edit   "Edit trip"    (pushed, draft-only)
               profile/edit     "Edit profile" (pushed)
+              user/[id]        audience profile (pushed, empty title, read-only)
 ```
 
 **Convention: every pushed (non-root) screen shows a VISIBLE BACK BUTTON** — the themed native stack header (`pushedHeader` in the root layout) unless the screen supplies its own back affordance. Root tabs and close-button modals are exempt. Back buttons are **chevron-only** (`headerBackButtonDisplayMode: 'minimal'`) — without it, iOS shows the previous route's name ("(tabs)") as the back label.
@@ -348,8 +358,9 @@ All modules in [src/data/](src/data/). Pattern per module: plain async functions
 | [client.ts](src/data/client.ts) | `getSupabaseClient()` (lazy singleton), `getSupabaseConfig()`, `SupabaseConfigError` |
 | [types.ts](src/data/types.ts) | **Generated** — `Database`, `Tables<>`, `TablesInsert<>`, `Enums<>`. Regenerate after every migration; never hand-edit. |
 | [auth.tsx](src/data/auth.tsx) | `SessionProvider`, `useSession()`, `signUp()`, `signIn()`, `signOut()`, friendly error mapping |
-| [profiles.ts](src/data/profiles.ts) | `Profile`, `MyProfile` (+birthday), `getMyProfile`, `updateMyProfile`, `setMyAvatar/setMyCover`, `isUsernameAvailable`, `profileMediaUrl`, `useMyProfile`, `useUpdateMyProfile` |
-| [trips.ts](src/data/trips.ts) | `Trip`, `TripWithOwner`, `TripWithStops`, `TripState`, `getTripState`, `getPublishBlocker`, `localToday`, `createTrip`, `updateTrip` (draft-only), `publishTrip`, `getTrip`, `listMyTrips`, `listPublishedTrips` + `useTrip/useMyTrips/usePublishedTrips/useCreateTrip/useUpdateTrip/usePublishTrip` |
+| [profiles.ts](src/data/profiles.ts) | `Profile`, `MyProfile` (+birthday), `getMyProfile`, `getProfileById`, `updateMyProfile`, `setMyAvatar/setMyCover`, `isUsernameAvailable`, `profileMediaUrl`, `useMyProfile`, `useProfile(id)`, `useUpdateMyProfile` |
+| [trips.ts](src/data/trips.ts) | `Trip`, `TripWithOwner`, `TripWithStops`, `TripState`, `OWNER_JOIN`, `getTripState`, `getPublishBlocker`, `localToday`, `createTrip`, `updateTrip` (draft-only), `publishTrip`, `getTrip`, `listMyTrips`, `listPublishedTrips`, `listPublishedTripsByOwner/ByCountry` + `useTrip/useMyTrips/usePublishedTrips/usePublishedTripsByOwner/usePublishedTripsByCountry/useCreateTrip/useUpdateTrip/usePublishTrip` |
+| [search.ts](src/data/search.ts) | `useSearch(term)` / `searchAll` — parallel ILIKE queries (profiles + published trips, capped 10 each, wildcards escaped) + client-side country matches; `MIN_SEARCH_LENGTH = 2`; internals swappable for a ranked RPC / pg_trgm |
 | [updates.ts](src/data/updates.ts) | `Update` **discriminated union** (Note/Photo/Purchase/Attraction), `NewUpdate`, `listUpdates`, `createUpdate`, `BudgetLine`, `getTripBudget`, `useTripUpdates`, `useTripBudget`, `useCreateUpdate`. Rows violating variant invariants (or reserved `video`) map to `null` and are filtered out. |
 | [media.ts](src/data/media.ts) | `uploadTripPhoto(tripId, image)`, `useSignedPhotoUrls(paths)` |
 | [storage.ts](src/data/storage.ts) | `AppBucket`, `requireUserId`, `uniqueObjectName`, `uploadImage`, `publicUrl`, `removeObjects`, `useSignedUrls` |
@@ -486,7 +497,7 @@ Work is planned as OpenSpec changes (see §15), implemented on feature branches,
 
 All product work is planned as OpenSpec changes in [openspec/](openspec/) (`spec-driven` schema). The `openspec` CLI is **not installed** — read the directory directly; [openspec/config.yaml](openspec/config.yaml) is the richest single context file (product, stack, brand, locked decisions, change sequence).
 
-- `openspec/specs/` — current capability specs: `project-scaffold`, `user-auth`, `user-profiles`, `trips`, `trip-updates`, `trip-budget`, `media-storage`.
+- `openspec/specs/` — current capability specs: `project-scaffold`, `user-auth`, `user-profiles`, `trips`, `trip-updates`, `trip-budget`, `media-storage`, `discovery`.
 - `openspec/changes/` — active changes (proposal/design/specs/tasks per change).
 - `openspec/changes/archive/` — completed changes.
 
@@ -502,6 +513,7 @@ All product work is planned as OpenSpec changes in [openspec/](openspec/) (`spec
 | `add-trip-creator` | archived 2026-07-18 | Countries/dates/cover, publish gate, draft editing, Live/Completed chips |
 | `update-profile-cta-and-bottom-nav` | archived 2026-07-18 | Profile CTA card, five-slot tab bar |
 | `update-display-cleanup` | archived 2026-07-18 | Health card removal, sign-out → Settings, compact CTA, `ImageInputField` pattern, chevron-only back, country-picker sheet |
+| `add-discover-search` | archived 2026-07-18 | Discover search (users/trips/countries, live results, recents), audience profile `/user/[id]` |
 
 ---
 
@@ -515,7 +527,8 @@ Planned sequence (one OpenSpec change each), from config.yaml:
 ✅ add-trips-and-updates          (hero vertical slice)
 ✅ (interleaved: redesign-profile-screen, add-profile-media-and-storage,
     add-trip-creator, update-profile-cta-and-bottom-nav)
-⬜ add-follows-and-discovery      → fills the Discover tab
+✅ add-discover-search            → Discover search + audience profiles (interleaved)
+⬜ add-follows-and-discovery      → follows + trending on Discover; fills the audience profile's Follow slot
 ⬜ add-reactions-and-saves        → makes profile saves stat real; passport surfaces
 ⬜ add-itinerary-copy             → the copy-with-budget headline feature
 ⬜ add-video-updates              → Mux; 'video' enum value + media_path already waiting
@@ -550,3 +563,5 @@ Planned sequence (one OpenSpec change each), from config.yaml:
 - **2026-07-18** — Initial version. Full documentation of the app as of the `feature/trip-creation` branch: auth + profiles + profile media, trips with creator fields (countries/dates/cover/publish gate), typed updates + composer + thread + budget rollup, five-slot tab shell, four migrations, RLS model, design system, OpenSpec workflow and roadmap.
 - **2026-07-18** — `update-display-cleanup` implemented: Home health card removed (`health.ts` dormant), sign out moved to Settings under Account Management (first real settings content), compact profile CTA card, new `ImageInputField` component + image-input guideline (dashed warm-gray empty / scrim-`+` filled; dashed-coral stays CTA-only) adopted by profile cover/avatar and trip-form cover, chevron-only back buttons (`headerBackButtonDisplayMode: 'minimal'` — kills the "(tabs)" label), country picker reworked to an ~80% bottom sheet. Sections 3, 7, 10, 11, 14, 15 updated.
 - **2026-07-18** — All four active changes archived (`add-profile-media-and-storage`, `add-trip-creator`, `update-profile-cta-and-bottom-nav`, `update-display-cleanup`); their delta specs synced into `openspec/specs/` in change order, adding the `media-storage` capability spec. Change-history table updated.
+- **2026-07-18** — `add-discover-search` implemented: Discover tab rebuilt as live search (countries client-side, users + published trips via escaped ILIKE, 300ms debounce, min 2 chars), country drill-down (`.contains()` on `country_codes`), device-local recent searches (first Zustand usage, persisted via AsyncStorage), and the read-only audience profile at `/user/[id]` (`ProfileHeader` gained `coversStatusBar` prop and is now exported with `ProfileStats`). Sections 3, 6, 7, 10, 15, 16 updated.
+- **2026-07-18** — `add-discover-search` archived after device verification; delta specs synced to main (new `discovery` capability spec; audience-profile requirement added to `user-profiles`).
