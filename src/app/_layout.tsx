@@ -28,13 +28,15 @@ SplashScreen.preventAutoHideAsync();
 const queryClient = new QueryClient();
 
 /** Pushed (non-root) screens show the native themed header — the app's
- *  visible-back-button convention. */
+ *  visible-back-button convention. Chevron-only: without a back title, iOS
+ *  would fall back to the previous route's name ("(tabs)"). */
 const pushedHeader = {
   headerShown: true,
   headerShadowVisible: false,
   headerStyle: { backgroundColor: colors.surface },
   headerTintColor: colors.ink,
   headerTitleStyle: { fontFamily: fontFamily.sansSemibold },
+  headerBackButtonDisplayMode: 'minimal',
 } as const;
 
 function RootNavigator({ fontsReady }: { fontsReady: boolean }) {

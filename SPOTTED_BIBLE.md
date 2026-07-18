@@ -73,12 +73,12 @@ Key product stances:
 **Profiles** ([src/features/profile/](src/features/profile/), [src/data/profiles.ts](src/data/profiles.ts))
 - Public profile: username (immutable, enforced by DB trigger), display name, bio (≤160), avatar, cover photo.
 - Owner-private birthday stored in a separate `private_profiles` table (RLS is row-level, so owner-only visibility requires its own table).
-- Profile screen: cover band (photo or teal fallback) + overlapping avatar + identity block + stats row (followers/saves hardcoded 0 until those features ship; trips is real) + trip list led by a full-width "Start a trip" CTA card (the screen's one coral action; Edit profile is secondary-styled).
-- Edit profile screen: display name, bio, birthday, avatar/cover pickers.
+- Profile screen: cover band (photo or teal fallback) + overlapping avatar + identity block + stats row (followers/saves hardcoded 0 until those features ship; trips is real) + trip list led by a compact full-width "Start a trip" CTA card matching trip-card height (the screen's one coral action; Edit profile is secondary-styled). Sign out lives in Settings, not here.
+- Edit profile screen: display name, bio, birthday, avatar/cover pickers via the shared `ImageInputField` (no text labels — the `+` affordance carries it).
 - Media replace lifecycle: upload new file under a fresh unique name → point the row at it → best-effort delete predecessor. A row never references a missing file.
 
 **Trips** ([src/data/trips.ts](src/data/trips.ts), [src/features/trips/](src/features/trips/))
-- Create trip: title (1–80), description (≤280), country multi-select (ISO 3166-1 alpha-2, max 20), from/to date range (day-granular, paired + ordered), optional 16:9 cover photo (private `trip-media` bucket).
+- Create trip: title (1–80), description (≤280), country multi-select (ISO 3166-1 alpha-2, max 20) in an ~80%-height bottom-sheet picker (dim backdrop, tap-to-dismiss — full-screen would sit under the iOS status bar), from/to date range (day-granular, paired + ordered), optional 16:9 cover photo (private `trip-media` bucket) via `ImageInputField`.
 - Draft-only editing via a dedicated edit screen; published trips are not editable yet.
 - Publish gating: cannot publish before `start_date` (client gate in device-local time; DB CHECK backstop allows `current_date + 1` for timezone slack — the client UX is the real gate). Blocked reasons surface as `missing-dates` / `not-started` via `getPublishBlocker()`.
 - Publishing is confirmed via an alert; sets `status='published'` + `published_at`.
@@ -92,8 +92,10 @@ Key product stances:
 - Budget header showing per-currency totals from the `trip_budgets` view.
 
 **Home tab** ([src/app/(tabs)/index.tsx](src/app/(tabs)/index.tsx))
-- Feed of the 50 most recently published trips (all users), newest first, with trip cards linking into threads.
-- Backend health card (hits the GoTrue `/auth/v1/health` endpoint, shows latency, 4s timeout).
+- Feed of the 50 most recently published trips (all users), newest first, with trip cards linking into threads. (The scaffold-era backend health card was removed 2026-07-18; `useHealthCheck` in [src/data/health.ts](src/data/health.ts) is kept dormant for a future diagnostics surface.)
+
+**Settings tab** ([src/app/(tabs)/settings.tsx](src/app/(tabs)/settings.tsx))
+- Account Management section with a Sign out row (coral label). Its heading + row-card markup is the template for future settings sections — extract a shared component when a second section arrives.
 
 **Tab shell** ([src/app/(tabs)/_layout.tsx](src/app/(tabs)/_layout.tsx))
 - Five-slot brand nav: Home, Discover, raised coral center `+` button (opens `/trip/new`; its `create` route is a dummy), Settings, Profile.
@@ -101,7 +103,6 @@ Key product stances:
 ### Placeholder screens (UI only, no functionality)
 
 - **Discover** — awaits `add-follows-and-discovery`.
-- **Settings** — sign-out currently lives on the Profile screen; settings content TBD.
 
 ### Not built yet (see [Roadmap](#16-roadmap))
 
@@ -204,10 +205,10 @@ Signed OUT ──▶ (auth)
                └─ sign-up      pushed, back button
 
 Signed IN ──▶ (tabs)                       ← headerless root tabs
-               ├─ index        Home feed + health card
+               ├─ index        Home feed
                ├─ discover     placeholder
                ├─ create       dummy route — center + button pushes /trip/new
-               ├─ settings     placeholder
+               ├─ settings     Account Management → Sign out
                └─ profile      own profile + trip list
               trip/new         "New trip"     (pushed, themed native header)
               trip/[id]/index  thread         (pushed, empty title)
@@ -215,7 +216,7 @@ Signed IN ──▶ (tabs)                       ← headerless root tabs
               profile/edit     "Edit profile" (pushed)
 ```
 
-**Convention: every pushed (non-root) screen shows a VISIBLE BACK BUTTON** — the themed native stack header (`pushedHeader` in the root layout) unless the screen supplies its own back affordance. Root tabs and close-button modals are exempt.
+**Convention: every pushed (non-root) screen shows a VISIBLE BACK BUTTON** — the themed native stack header (`pushedHeader` in the root layout) unless the screen supplies its own back affordance. Root tabs and close-button modals are exempt. Back buttons are **chevron-only** (`headerBackButtonDisplayMode: 'minimal'`) — without it, iOS shows the previous route's name ("(tabs)") as the back label.
 
 ⚠️ Route-name gotcha: because `trip/[id]` is a **directory**, the root-layout screen names must be `trip/[id]/index` and `trip/[id]/edit` — a `Stack.Screen name="trip/[id]"` would silently drop its header options.
 
@@ -352,7 +353,7 @@ All modules in [src/data/](src/data/). Pattern per module: plain async functions
 | [updates.ts](src/data/updates.ts) | `Update` **discriminated union** (Note/Photo/Purchase/Attraction), `NewUpdate`, `listUpdates`, `createUpdate`, `BudgetLine`, `getTripBudget`, `useTripUpdates`, `useTripBudget`, `useCreateUpdate`. Rows violating variant invariants (or reserved `video`) map to `null` and are filtered out. |
 | [media.ts](src/data/media.ts) | `uploadTripPhoto(tripId, image)`, `useSignedPhotoUrls(paths)` |
 | [storage.ts](src/data/storage.ts) | `AppBucket`, `requireUserId`, `uniqueObjectName`, `uploadImage`, `publicUrl`, `removeObjects`, `useSignedUrls` |
-| [health.ts](src/data/health.ts) | `checkBackendHealth()` (GoTrue health endpoint, 4s manual abort timer — RN fetch lacks `AbortSignal.timeout`), `useHealthCheck` |
+| [health.ts](src/data/health.ts) | `checkBackendHealth()` (GoTrue health endpoint, 4s manual abort timer — RN fetch lacks `AbortSignal.timeout`), `useHealthCheck` — **dormant since 2026-07-18** (no UI consumer; kept for a future diagnostics surface) |
 
 ### src/lib/ utilities
 
@@ -404,7 +405,9 @@ Signals are used sparingly — one coral action per screen is the ideal.
 
 - Spacing on a 4pt grid; radii from tokens (`rounded-bubble` = 20px chat-bubble cards).
 - Accessibility-friendly by default: `accessibilityRole`, `accessibilityLabel` on interactive elements.
-- Visible back button on every pushed screen (see §7).
+- Visible back button on every pushed screen, chevron-only (see §7).
+- **Image input fields** ([src/features/ui/image-input-field.tsx](src/features/ui/image-input-field.tsx)) — the one pattern for every image-picking form field. Empty: `surfaceSunken` fill, dashed `borderStrong` border, centered `+` in `inkMuted` — no instructional text ("gray" always means these warm-gray tokens, never neutral gray). Filled: the image under a ~25% black scrim with a centered white `+` (still actionable). Shapes adapt (16:9 `cover`, circle `avatar`, 4:3 `photo`); state styling never diverges. Identity placeholders (teal band, coral initial) belong to *display* surfaces like the profile header, never to input fields.
+- **Dashed borders disambiguated**: dashed **coral** = CTA (Start-a-trip card, "+ Add countries" chip); dashed **warm gray** = empty image input. Don't cross them.
 
 ---
 
@@ -475,7 +478,7 @@ Work is planned as OpenSpec changes (see §15), implemented on feature branches,
 
 - **Sentry** and **PostHog** initialize only when their `EXPO_PUBLIC_*_ENABLED` flag is `'true'` AND the key/DSN is present; SDK modules are `require()`d inside the guards so disabled runs don't even load them. Dev needs no keys.
 - `getPostHog()` returns the client or `undefined` — callers must handle the disabled case.
-- The Home screen health card is the built-in connectivity diagnostic (GoTrue health endpoint + latency).
+- Connectivity diagnostics: `useHealthCheck` ([src/data/health.ts](src/data/health.ts)) is currently **dormant** (no UI consumes it since the Home health card's removal) — kept deliberately for a future debug surface; don't dead-code-sweep it.
 
 ---
 
@@ -483,7 +486,7 @@ Work is planned as OpenSpec changes (see §15), implemented on feature branches,
 
 All product work is planned as OpenSpec changes in [openspec/](openspec/) (`spec-driven` schema). The `openspec` CLI is **not installed** — read the directory directly; [openspec/config.yaml](openspec/config.yaml) is the richest single context file (product, stack, brand, locked decisions, change sequence).
 
-- `openspec/specs/` — current capability specs: `project-scaffold`, `user-auth`, `user-profiles`, `trips`, `trip-updates`, `trip-budget`.
+- `openspec/specs/` — current capability specs: `project-scaffold`, `user-auth`, `user-profiles`, `trips`, `trip-updates`, `trip-budget`, `media-storage`.
 - `openspec/changes/` — active changes (proposal/design/specs/tasks per change).
 - `openspec/changes/archive/` — completed changes.
 
@@ -495,9 +498,10 @@ All product work is planned as OpenSpec changes in [openspec/](openspec/) (`spec
 | `add-auth-and-profiles` | archived 2026-07-16 | Auth flow, profiles schema/trigger/RLS |
 | `add-trips-and-updates` | archived 2026-07-16 | Hero slice: trips, typed updates, composer, thread, budget rollup |
 | `redesign-profile-screen` | archived 2026-07-16 | Cover/avatar profile header, stats, trip list |
-| `add-profile-media-and-storage` | active (implemented) | Avatar/cover upload, private_profiles birthday, profile-media bucket |
-| `add-trip-creator` | active (implemented; this branch) | Countries/dates/cover, publish gate, draft editing, Live/Completed chips |
-| `update-profile-cta-and-bottom-nav` | active (implemented) | Profile CTA card, five-slot tab bar |
+| `add-profile-media-and-storage` | archived 2026-07-18 | Avatar/cover upload, private_profiles birthday, profile-media bucket |
+| `add-trip-creator` | archived 2026-07-18 | Countries/dates/cover, publish gate, draft editing, Live/Completed chips |
+| `update-profile-cta-and-bottom-nav` | archived 2026-07-18 | Profile CTA card, five-slot tab bar |
+| `update-display-cleanup` | archived 2026-07-18 | Health card removal, sign-out → Settings, compact CTA, `ImageInputField` pattern, chevron-only back, country-picker sheet |
 
 ---
 
@@ -544,3 +548,5 @@ Planned sequence (one OpenSpec change each), from config.yaml:
 > Append a dated entry here for every meaningful edit to this document. Keep the body sections updated in place; this log records *what changed and when*.
 
 - **2026-07-18** — Initial version. Full documentation of the app as of the `feature/trip-creation` branch: auth + profiles + profile media, trips with creator fields (countries/dates/cover/publish gate), typed updates + composer + thread + budget rollup, five-slot tab shell, four migrations, RLS model, design system, OpenSpec workflow and roadmap.
+- **2026-07-18** — `update-display-cleanup` implemented: Home health card removed (`health.ts` dormant), sign out moved to Settings under Account Management (first real settings content), compact profile CTA card, new `ImageInputField` component + image-input guideline (dashed warm-gray empty / scrim-`+` filled; dashed-coral stays CTA-only) adopted by profile cover/avatar and trip-form cover, chevron-only back buttons (`headerBackButtonDisplayMode: 'minimal'` — kills the "(tabs)" label), country picker reworked to an ~80% bottom sheet. Sections 3, 7, 10, 11, 14, 15 updated.
+- **2026-07-18** — All four active changes archived (`add-profile-media-and-storage`, `add-trip-creator`, `update-profile-cta-and-bottom-nav`, `update-display-cleanup`); their delta specs synced into `openspec/specs/` in change order, adding the `media-storage` capability spec. Change-history table updated.

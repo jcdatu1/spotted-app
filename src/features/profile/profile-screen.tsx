@@ -4,13 +4,12 @@ import type { ReactNode } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { signOut } from '@/data/auth';
 import type { Profile } from '@/data/profiles';
 import { profileMediaUrl, useMyProfile } from '@/data/profiles';
 import { useSignedUrls } from '@/data/storage';
 import type { TripWithStops } from '@/data/trips';
 import { getTripState, useMyTrips } from '@/data/trips';
-import { AuthButton, FormError } from '@/features/auth/form';
+import { FormError } from '@/features/auth/form';
 import { TripCard, tripCardMeta } from '@/features/trips/trip-card';
 import { colors } from '@/theme/tokens';
 
@@ -98,15 +97,11 @@ function StartTripCard() {
       <Pressable
         accessibilityRole="button"
         accessibilityLabel="Start a new trip"
-        className="mb-3 items-center rounded-bubble border border-primary bg-primaryFaint px-6 py-5"
+        className="mb-3 items-center rounded-bubble border border-primary bg-primaryFaint px-6 py-3"
         style={{ borderStyle: 'dashed' }}>
         <Text className="font-display text-xl text-primary">+</Text>
-        <Text className="mt-1 text-center font-display-italic text-base text-ink">
-          Where to next?
-        </Text>
-        <Text className="mt-0.5 text-center font-sans text-sm text-inkMuted">
-          Start a new journal
-        </Text>
+        <Text className="text-center font-display-italic text-base text-ink">Where to next?</Text>
+        <Text className="text-center font-sans text-sm text-inkMuted">Start a new journal</Text>
       </Pressable>
     </Link>
   );
@@ -208,9 +203,7 @@ export function ProfileScreen() {
       />
       <ProfileStats followers={0} trips={trips?.length ?? 0} saves={0} />
       <ProfileTripsSection trips={trips} isPending={tripsPending} />
-      <View className="mb-10 mt-8 px-5">
-        <AuthButton label="Sign out" onPress={() => signOut()} variant="secondary" />
-      </View>
+      <View className="mb-10" />
     </ScrollView>
   );
 }

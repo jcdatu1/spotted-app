@@ -1,8 +1,7 @@
 import { useQueryClient } from '@tanstack/react-query';
-import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
+import { ActivityIndicator, ScrollView, Text, View } from 'react-native';
 
 import {
   getMyProfile,
@@ -13,7 +12,8 @@ import {
   useMyProfile,
 } from '@/data/profiles';
 import { AuthButton, FormError, FormField } from '@/features/auth/form';
-import { COVER_ASPECT, pickAndPrepareImage, type PreparedImage } from '@/lib/images';
+import { ImageInputField } from '@/features/ui/image-input-field';
+import { pickAndPrepareImage, type PreparedImage } from '@/lib/images';
 import { colors, fontFamily } from '@/theme/tokens';
 
 const AVATAR_SIZE = 88;
@@ -89,7 +89,6 @@ export function EditProfileScreen() {
 
   const coverUri = coverDraft?.uri ?? profileMediaUrl(profile.cover_path);
   const avatarUri = avatarDraft?.uri ?? profileMediaUrl(profile.avatar_path);
-  const initial = profile.display_name.trim().charAt(0).toUpperCase() || '@';
 
   async function pick(kind: 'avatar' | 'cover') {
     try {
@@ -136,46 +135,23 @@ export function EditProfileScreen() {
 
       <View className="mb-4">
         <Text className="mb-1 font-sans-semibold text-sm text-ink">Cover photo</Text>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={coverUri ? 'Change cover photo' : 'Add cover photo'}
+        <ImageInputField
+          shape="cover"
+          uri={coverUri}
           onPress={() => pick('cover')}
-          className="items-center justify-center overflow-hidden rounded-lg bg-secondary"
-          style={{ width: '100%', aspectRatio: COVER_ASPECT }}>
-          {coverUri ? (
-            <Image
-              source={{ uri: coverUri }}
-              style={{ width: '100%', height: '100%' }}
-              contentFit="cover"
-            />
-          ) : (
-            <Text className="font-sans text-sm text-white">Tap to add a cover photo</Text>
-          )}
-        </Pressable>
+          accessibilityLabel={coverUri ? 'Change cover photo' : 'Add cover photo'}
+        />
       </View>
 
       <View className="mb-4">
         <Text className="mb-1 font-sans-semibold text-sm text-ink">Profile photo</Text>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={avatarUri ? 'Change profile photo' : 'Add profile photo'}
+        <ImageInputField
+          shape="avatar"
+          uri={avatarUri}
           onPress={() => pick('avatar')}
-          className="self-start">
-          <View
-            className="items-center justify-center overflow-hidden bg-primary"
-            style={{ width: AVATAR_SIZE, height: AVATAR_SIZE, borderRadius: AVATAR_SIZE / 2 }}>
-            {avatarUri ? (
-              <Image
-                source={{ uri: avatarUri }}
-                style={{ width: '100%', height: '100%' }}
-                contentFit="cover"
-              />
-            ) : (
-              <Text className="font-display text-3xl text-inkInverse">{initial}</Text>
-            )}
-          </View>
-          <Text className="mt-1 font-sans-semibold text-sm text-secondary">Change photo</Text>
-        </Pressable>
+          accessibilityLabel={avatarUri ? 'Change profile photo' : 'Add profile photo'}
+          size={AVATAR_SIZE}
+        />
       </View>
 
       <FormField

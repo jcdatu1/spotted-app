@@ -1,11 +1,11 @@
-import { Image } from 'expo-image';
 import { useState } from 'react';
 import { FlatList, Modal, Pressable, Text, TextInput, View } from 'react-native';
 
 import type { Trip, TripDetailsInput } from '@/data/trips';
 import { AuthButton, FormError, FormField } from '@/features/auth/form';
+import { ImageInputField } from '@/features/ui/image-input-field';
 import { countryName, flagEmoji, searchCountries } from '@/lib/countries';
-import { COVER_ASPECT, pickAndPrepareImage, type PreparedImage } from '@/lib/images';
+import { pickAndPrepareImage, type PreparedImage } from '@/lib/images';
 import { colors, fontFamily } from '@/theme/tokens';
 
 const MAX_COUNTRIES = 20;
@@ -35,50 +35,60 @@ function CountryPickerModal({
   const results = searchCountries(query);
 
   return (
-    <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
-      <View className="flex-1 bg-surface px-5 pt-4">
-        <View className="flex-row items-center justify-between">
-          <Text accessibilityRole="header" className="font-display text-xl text-ink">
-            Countries
-          </Text>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Done picking countries"
-            onPress={onClose}>
-            <Text className="font-sans-semibold text-base text-primary">Done</Text>
-          </Pressable>
+    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
+      {/* Partial-height sheet: the top ~20% stays backdrop so picker content
+          never sits under the iOS status bar/notch. */}
+      <View className="flex-1 justify-end" style={{ backgroundColor: 'rgba(0, 0, 0, 0.4)' }}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Close country picker"
+          className="flex-1"
+          onPress={onClose}
+        />
+        <View className="rounded-t-bubble bg-surface px-5 pb-6 pt-4" style={{ height: '80%' }}>
+          <View className="flex-row items-center justify-between">
+            <Text accessibilityRole="header" className="font-display text-xl text-ink">
+              Countries
+            </Text>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Done picking countries"
+              onPress={onClose}>
+              <Text className="font-sans-semibold text-base text-primary">Done</Text>
+            </Pressable>
+          </View>
+          <TextInput
+            accessibilityLabel="Search countries"
+            value={query}
+            onChangeText={setQuery}
+            placeholder="Search countries"
+            placeholderTextColor={colors.inkFaint}
+            autoCorrect={false}
+            className="mt-3 rounded-lg border border-borderStrong bg-white px-4 py-3 font-sans text-base text-ink"
+          />
+          <FlatList
+            className="mt-2 flex-1"
+            data={results}
+            keyExtractor={(c) => c.code}
+            keyboardShouldPersistTaps="handled"
+            renderItem={({ item }) => {
+              const isSelected = selected.includes(item.code);
+              return (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={`${item.name}${isSelected ? ', selected' : ''}`}
+                  onPress={() => onToggle(item.code)}
+                  className="flex-row items-center gap-3 border-b border-border py-3">
+                  <Text className="text-xl">{flagEmoji(item.code)}</Text>
+                  <Text className="flex-1 font-sans text-base text-ink">{item.name}</Text>
+                  {isSelected ? (
+                    <Text className="font-sans-bold text-base text-primary">✓</Text>
+                  ) : null}
+                </Pressable>
+              );
+            }}
+          />
         </View>
-        <TextInput
-          accessibilityLabel="Search countries"
-          value={query}
-          onChangeText={setQuery}
-          placeholder="Search countries"
-          placeholderTextColor={colors.inkFaint}
-          autoCorrect={false}
-          className="mt-3 rounded-lg border border-borderStrong bg-white px-4 py-3 font-sans text-base text-ink"
-        />
-        <FlatList
-          className="mt-2 flex-1"
-          data={results}
-          keyExtractor={(c) => c.code}
-          keyboardShouldPersistTaps="handled"
-          renderItem={({ item }) => {
-            const isSelected = selected.includes(item.code);
-            return (
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={`${item.name}${isSelected ? ', selected' : ''}`}
-                onPress={() => onToggle(item.code)}
-                className="flex-row items-center gap-3 border-b border-border py-3">
-                <Text className="text-xl">{flagEmoji(item.code)}</Text>
-                <Text className="flex-1 font-sans text-base text-ink">{item.name}</Text>
-                {isSelected ? (
-                  <Text className="font-sans-bold text-base text-primary">✓</Text>
-                ) : null}
-              </Pressable>
-            );
-          }}
-        />
       </View>
     </Modal>
   );
@@ -173,22 +183,12 @@ export function TripForm({
 
       <View className="mb-4">
         <Text className="mb-1 font-sans-semibold text-sm text-ink">Cover photo (optional)</Text>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={coverUri ? 'Change cover photo' : 'Add cover photo'}
+        <ImageInputField
+          shape="cover"
+          uri={coverUri}
           onPress={pickCover}
-          className="items-center justify-center overflow-hidden rounded-lg bg-secondary"
-          style={{ width: '100%', aspectRatio: COVER_ASPECT }}>
-          {coverUri ? (
-            <Image
-              source={{ uri: coverUri }}
-              style={{ width: '100%', height: '100%' }}
-              contentFit="cover"
-            />
-          ) : (
-            <Text className="font-sans text-sm text-white">Tap to add a cover photo</Text>
-          )}
-        </Pressable>
+          accessibilityLabel={coverUri ? 'Change cover photo' : 'Add cover photo'}
+        />
       </View>
 
       <FormField

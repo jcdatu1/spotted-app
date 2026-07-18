@@ -18,7 +18,7 @@ The system SHALL allow a new user to sign up with an email address, a password, 
 - **THEN** the form shows a "username taken" error, no account is created, and no orphaned auth user remains
 
 ### Requirement: User can sign in and sign out
-The system SHALL allow an existing user to sign in with email and password, and a signed-in user to sign out from the Profile tab.
+The system SHALL allow an existing user to sign in with email and password, and a signed-in user to sign out from the Settings tab, where sign out SHALL appear as a tappable row under an "Account Management" section heading. The Profile tab SHALL NOT carry a sign-out affordance.
 
 #### Scenario: Successful sign-in
 - **WHEN** a user submits valid credentials on the sign-in screen
@@ -29,8 +29,12 @@ The system SHALL allow an existing user to sign in with email and password, and 
 - **THEN** the sign-in screen shows an explicit error and the user remains signed out
 
 #### Scenario: Sign out
-- **WHEN** a signed-in user taps sign out on the Profile tab
+- **WHEN** a signed-in user taps the Sign out row under Account Management in Settings
 - **THEN** the session is cleared and the app returns to the auth flow
+
+#### Scenario: Profile carries no sign-out
+- **WHEN** a signed-in user views their Profile tab
+- **THEN** no sign-out button is rendered there
 
 ### Requirement: Sessions persist across app restarts
 The system SHALL persist the auth session on-device (AsyncStorage) and restore it on launch, holding the splash screen until restoration resolves.
