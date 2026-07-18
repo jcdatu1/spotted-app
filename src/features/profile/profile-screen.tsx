@@ -4,6 +4,7 @@ import type { ReactNode } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { useFollowerCount } from '@/data/follows';
 import type { Profile } from '@/data/profiles';
 import { profileMediaUrl, useMyProfile } from '@/data/profiles';
 import { useSignedUrls } from '@/data/storage';
@@ -16,10 +17,10 @@ import { colors } from '@/theme/tokens';
 const AVATAR_SIZE = 88;
 
 /** Cover band (photo when set, teal when not) + overlapping avatar + identity
- *  block. `action` is the slot the audience view will fill with a Follow
- *  button (holder: Edit profile). `coversStatusBar` extends the band under
+ *  block. `action` is the surface's header action (owner: Edit profile;
+ *  audience: Follow/Unfollow). `coversStatusBar` extends the band under
  *  the status bar — false on pushed screens whose native header already
- *  clears it (audience profile). */
+ *  clears it (audience profile, self-view via /user/[id]). */
 export function ProfileHeader({
   profile,
   action,
@@ -82,7 +83,7 @@ function Stat({ value, label, valueClass }: { value: number; label: string; valu
   );
 }
 
-/** Followers/saves stay 0 until those capabilities ship; trips is the real count. */
+/** Saves stays 0 until that capability ships; followers and trips are real counts. */
 export function ProfileStats({
   followers,
   trips,
@@ -175,10 +176,13 @@ function ProfileTripsSection({
   );
 }
 
-export function ProfileScreen() {
+/** The owner surface — on the Profile tab and, pushed under a native header
+ *  (`coversStatusBar={false}`), when you open yourself via /user/[id]. */
+export function ProfileScreen({ coversStatusBar = true }: { coversStatusBar?: boolean }) {
   const router = useRouter();
   const { data: profile, isPending, error } = useMyProfile();
   const { data: trips, isPending: tripsPending } = useMyTrips();
+  const { data: followerCount } = useFollowerCount(profile?.id);
 
   if (isPending) {
     return (
@@ -202,6 +206,7 @@ export function ProfileScreen() {
     <ScrollView className="flex-1 bg-surface">
       <ProfileHeader
         profile={profile}
+        coversStatusBar={coversStatusBar}
         action={
           <Pressable
             accessibilityRole="button"
@@ -212,7 +217,7 @@ export function ProfileScreen() {
           </Pressable>
         }
       />
-      <ProfileStats followers={0} trips={trips?.length ?? 0} saves={0} />
+      <ProfileStats followers={followerCount ?? 0} trips={trips?.length ?? 0} saves={0} />
       <ProfileTripsSection trips={trips} isPending={tripsPending} />
       <View className="mb-10" />
     </ScrollView>

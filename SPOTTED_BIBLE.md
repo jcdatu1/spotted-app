@@ -73,7 +73,7 @@ Key product stances:
 **Profiles** ([src/features/profile/](src/features/profile/), [src/data/profiles.ts](src/data/profiles.ts))
 - Public profile: username (immutable, enforced by DB trigger), display name, bio (≤160), avatar, cover photo.
 - Owner-private birthday stored in a separate `private_profiles` table (RLS is row-level, so owner-only visibility requires its own table).
-- Profile screen: cover band (photo or teal fallback) + overlapping avatar + identity block + stats row (followers/saves hardcoded 0 until those features ship; trips is real) + trip list led by a compact full-width "Start a trip" CTA card matching trip-card height (the screen's one coral action; Edit profile is secondary-styled). Sign out lives in Settings, not here.
+- Profile screen: cover band (photo or teal fallback) + overlapping avatar + identity block + stats row (followers and trips are real counts; saves hardcoded 0 until that feature ships) + trip list led by a compact full-width "Start a trip" CTA card matching trip-card height (the screen's one coral action; Edit profile is secondary-styled). Sign out lives in Settings, not here.
 - Edit profile screen: display name, bio, birthday, avatar/cover pickers via the shared `ImageInputField` (no text labels — the `+` affordance carries it).
 - Media replace lifecycle: upload new file under a fresh unique name → point the row at it → best-effort delete predecessor. A row never references a missing file.
 
@@ -100,8 +100,10 @@ Key product stances:
 - Country drill-down: tapping a country lists published trips whose `country_codes` contains it (`.contains()` filter), with a Clear affordance back to the query.
 - Recent searches: device-local Zustand store persisted to AsyncStorage (first Zustand usage in the app — `src/features/discover/search-history.ts`), last 10 distinct terms, shown when input is empty, tap to re-run, clearable.
 
-**Audience profiles** ([src/features/profile/audience-profile-screen.tsx](src/features/profile/audience-profile-screen.tsx))
-- Read-only `/user/[id]` (pushed, chevron back): reuses `ProfileHeader` (action slot empty until follows; `coversStatusBar={false}` since the native header clears the notch) + stats row + published trips only. No drafts, no private fields, no owner actions.
+**Audience profiles & follows** ([src/features/profile/audience-profile-screen.tsx](src/features/profile/audience-profile-screen.tsx), [src/data/follows.ts](src/data/follows.ts))
+- Read-only `/user/[id]` (pushed, chevron back): reuses `ProfileHeader` (`coversStatusBar={false}` since the native header clears the notch) + stats row (real follower count) + published trips only. No drafts, no private fields, no owner actions.
+- Header action slot holds **Follow** (coral primary) / **Unfollow** (secondary, Edit-profile style); toggle disabled while the mutation pends, empty while follow state loads, errors via `FormError`. Backed by the `follows` edge table (RLS: read all, write own edges only, self-follow CHECK-blocked).
+- **Self-view**: opening `/user/[id]` with your own id (e.g. tapping yourself in search) renders the full owner `ProfileScreen` inline — edit/create/drafts, no Follow button — keeping the pushed back button.
 
 **Settings tab** ([src/app/(tabs)/settings.tsx](src/app/(tabs)/settings.tsx))
 - Account Management section with a Sign out row (coral label). Its heading + row-card markup is the template for future settings sections — extract a shared component when a second section arrives.
@@ -111,11 +113,11 @@ Key product stances:
 
 ### Placeholder screens (UI only, no functionality)
 
-- None currently — Discover gained search in `add-discover-search`; follows/trending still await `add-follows-and-discovery`.
+- None currently — Discover gained search in `add-discover-search`; follows shipped in `add-follows`; trending still awaits a discovery follow-on.
 
 ### Not built yet (see [Roadmap](#16-roadmap))
 
-Follows, discovery, reactions, saves, itinerary copy, video updates, maps, push notifications, realtime threads, moderation/report/block, editing published trips, editing/deleting updates from the UI.
+Follower/following lists, trending/recommendations, reactions, saves, itinerary copy, video updates, maps, push notifications, realtime threads, moderation/report/block, editing published trips, editing/deleting updates from the UI.
 
 ---
 
@@ -223,7 +225,8 @@ Signed IN ──▶ (tabs)                       ← headerless root tabs
               trip/[id]/index  thread         (pushed, empty title)
               trip/[id]/edit   "Edit trip"    (pushed, draft-only)
               profile/edit     "Edit profile" (pushed)
-              user/[id]        audience profile (pushed, empty title, read-only)
+              user/[id]        audience profile (pushed, empty title; Follow/Unfollow;
+                               own id → owner ProfileScreen inline)
 ```
 
 **Convention: every pushed (non-root) screen shows a VISIBLE BACK BUTTON** — the themed native stack header (`pushedHeader` in the root layout) unless the screen supplies its own back affordance. Root tabs and close-button modals are exempt. Back buttons are **chevron-only** (`headerBackButtonDisplayMode: 'minimal'`) — without it, iOS shows the previous route's name ("(tabs)") as the back label.
@@ -234,12 +237,13 @@ Signed IN ──▶ (tabs)                       ← headerless root tabs
 
 ## 8. Database Schema
 
-Four migrations in [supabase/migrations/](supabase/migrations/) (chronological):
+Five migrations in [supabase/migrations/](supabase/migrations/) (chronological):
 
 1. `20260716120000_add_profiles.sql` — profiles, provisioning trigger, username RPC
 2. `20260716180000_add_trips_and_updates.sql` — trips, updates, budget view, trip-media bucket
 3. `20260716210000_add_profile_media_and_birthday.sql` — media path columns, private_profiles, profile-media bucket
 4. `20260716230000_add_trip_creator_fields.sql` — countries, dates, cover, publish gate
+5. `20260718090000_add_follows.sql` — follows edge table, RLS, followee index
 
 ### Enums
 
@@ -301,6 +305,15 @@ Indexes: `(owner_id)`, `(status, published_at desc)`.
 Per-type CHECKs: note→body required; photo→media_path required; purchase→amount+currency+vendor required; attraction→place_name required (fee optional); amount always requires currency.
 Index: `(trip_id, happened_at)`.
 
+**`follows`** — the social graph's first edge table; a bare owned edge, never mutated
+| Column | Type | Constraints |
+| --- | --- | --- |
+| `follower_id` | uuid | FK → profiles (cascade); composite PK part |
+| `followee_id` | uuid | FK → profiles (cascade); composite PK part |
+| `created_at` | timestamptz | default now() |
+
+CHECK: `follower_id <> followee_id` (no self-follow). PK `(follower_id, followee_id)` makes duplicate follows a PK violation (client treats `23505` as already-following). Index: `(followee_id)` for follower counts.
+
 ### Views
 
 **`trip_budgets`** (`security_invoker = true` — caller's RLS applies, so draft budgets are invisible to non-owners):
@@ -331,6 +344,7 @@ All permissions live in RLS. Summary:
 | `private_profiles` | own row only | ❌ (trigger-owned) | own row only | ❌ (cascade) |
 | `trips` | **published OR own** | own only | own only | own only |
 | `updates` | via parent trip's visibility | trip owner + self as author | trip owner | trip owner |
+| `follows` | any authenticated | own edges (`follower_id = uid`) | ❌ (no policy — edges are created/deleted, never mutated) | own edges |
 
 Key properties:
 
@@ -361,6 +375,7 @@ All modules in [src/data/](src/data/). Pattern per module: plain async functions
 | [profiles.ts](src/data/profiles.ts) | `Profile`, `MyProfile` (+birthday), `getMyProfile`, `getProfileById`, `updateMyProfile`, `setMyAvatar/setMyCover`, `isUsernameAvailable`, `profileMediaUrl`, `useMyProfile`, `useProfile(id)`, `useUpdateMyProfile` |
 | [trips.ts](src/data/trips.ts) | `Trip`, `TripWithOwner`, `TripWithStops`, `TripState`, `OWNER_JOIN`, `getTripState`, `getPublishBlocker`, `localToday`, `createTrip`, `updateTrip` (draft-only), `publishTrip`, `getTrip`, `listMyTrips`, `listPublishedTrips`, `listPublishedTripsByOwner/ByCountry` + `useTrip/useMyTrips/usePublishedTrips/usePublishedTripsByOwner/usePublishedTripsByCountry/useCreateTrip/useUpdateTrip/usePublishTrip` |
 | [search.ts](src/data/search.ts) | `useSearch(term)` / `searchAll` — parallel ILIKE queries (profiles + published trips, capped 10 each, wildcards escaped) + client-side country matches; `MIN_SEARCH_LENGTH = 2`; internals swappable for a ranked RPC / pg_trgm |
+| [follows.ts](src/data/follows.ts) | `getIsFollowing`, `getFollowerCount` (head count), `follow` (23505 = already following, not an error), `unfollow`, `useIsFollowing(id)` (disabled for self), `useFollowerCount(id)`, `useFollow()`/`useUnfollow()` (invalidate both keys for the followee) |
 | [updates.ts](src/data/updates.ts) | `Update` **discriminated union** (Note/Photo/Purchase/Attraction), `NewUpdate`, `listUpdates`, `createUpdate`, `BudgetLine`, `getTripBudget`, `useTripUpdates`, `useTripBudget`, `useCreateUpdate`. Rows violating variant invariants (or reserved `video`) map to `null` and are filtered out. |
 | [media.ts](src/data/media.ts) | `uploadTripPhoto(tripId, image)`, `useSignedPhotoUrls(paths)` |
 | [storage.ts](src/data/storage.ts) | `AppBucket`, `requireUserId`, `uniqueObjectName`, `uploadImage`, `publicUrl`, `removeObjects`, `useSignedUrls` |
@@ -514,6 +529,7 @@ All product work is planned as OpenSpec changes in [openspec/](openspec/) (`spec
 | `update-profile-cta-and-bottom-nav` | archived 2026-07-18 | Profile CTA card, five-slot tab bar |
 | `update-display-cleanup` | archived 2026-07-18 | Health card removal, sign-out → Settings, compact CTA, `ImageInputField` pattern, chevron-only back, country-picker sheet |
 | `add-discover-search` | archived 2026-07-18 | Discover search (users/trips/countries, live results, recents), audience profile `/user/[id]` |
+| `add-follows` | **active** | Follows edge table + RLS, Follow/Unfollow on audience profiles, real follower counts, `/user/[id]` self-view → owner screen |
 
 ---
 
@@ -528,7 +544,8 @@ Planned sequence (one OpenSpec change each), from config.yaml:
 ✅ (interleaved: redesign-profile-screen, add-profile-media-and-storage,
     add-trip-creator, update-profile-cta-and-bottom-nav)
 ✅ add-discover-search            → Discover search + audience profiles (interleaved)
-⬜ add-follows-and-discovery      → follows + trending on Discover; fills the audience profile's Follow slot
+✅ add-follows                    → follows edge + Follow/Unfollow + real follower counts
+⬜ discovery follow-on            → trending/recommendations on Discover, follower lists
 ⬜ add-reactions-and-saves        → makes profile saves stat real; passport surfaces
 ⬜ add-itinerary-copy             → the copy-with-budget headline feature
 ⬜ add-video-updates              → Mux; 'video' enum value + media_path already waiting
@@ -552,7 +569,7 @@ Planned sequence (one OpenSpec change each), from config.yaml:
 - **Date comparisons use string dates** (`YYYY-MM-DD` via `localToday()`) — string-comparable with Postgres `date` columns, avoiding Date-object timezone traps.
 - **Publish-gate timezone slack**: the DB CHECK allows `start_date <= current_date + 1` because the server gates in UTC while the client gates in device-local time; the client is the authoritative UX.
 - **`updates.mapRow` silently drops invalid/reserved rows** (returns null, filtered) — a `video` row in the DB will simply not render.
-- **Profile stats**: followers/saves are hardcoded 0 until their features ship.
+- **Profile stats**: saves is hardcoded 0 until that feature ships; followers/trips are real.
 
 ---
 
@@ -565,3 +582,4 @@ Planned sequence (one OpenSpec change each), from config.yaml:
 - **2026-07-18** — All four active changes archived (`add-profile-media-and-storage`, `add-trip-creator`, `update-profile-cta-and-bottom-nav`, `update-display-cleanup`); their delta specs synced into `openspec/specs/` in change order, adding the `media-storage` capability spec. Change-history table updated.
 - **2026-07-18** — `add-discover-search` implemented: Discover tab rebuilt as live search (countries client-side, users + published trips via escaped ILIKE, 300ms debounce, min 2 chars), country drill-down (`.contains()` on `country_codes`), device-local recent searches (first Zustand usage, persisted via AsyncStorage), and the read-only audience profile at `/user/[id]` (`ProfileHeader` gained `coversStatusBar` prop and is now exported with `ProfileStats`). Sections 3, 6, 7, 10, 15, 16 updated.
 - **2026-07-18** — `add-discover-search` archived after device verification; delta specs synced to main (new `discovery` capability spec; audience-profile requirement added to `user-profiles`).
+- **2026-07-18** — `add-follows` implemented: `follows` edge table (migration 5 — composite PK, self-follow CHECK, RLS read-all/write-own, followee index), `src/data/follows.ts` data layer, Follow (coral) / Unfollow (secondary) in the audience profile's action slot, real follower counts on both profile surfaces (saves still 0), and `/user/[id]` self-view now rendering the owner `ProfileScreen` inline (`coversStatusBar` prop). Sections 3, 7, 8, 9, 10, 15, 16, 17 updated.

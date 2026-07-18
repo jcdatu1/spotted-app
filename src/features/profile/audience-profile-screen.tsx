@@ -1,6 +1,8 @@
 import { useRouter } from 'expo-router';
+import { useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 
+import { useFollow, useFollowerCount, useIsFollowing, useUnfollow } from '@/data/follows';
 import { useProfile } from '@/data/profiles';
 import { useSignedUrls } from '@/data/storage';
 import { getTripState, usePublishedTripsByOwner } from '@/data/trips';
@@ -9,13 +11,61 @@ import { ProfileHeader, ProfileStats } from '@/features/profile/profile-screen';
 import { TripCard, tripCardMeta } from '@/features/trips/trip-card';
 import { colors } from '@/theme/tokens';
 
+/** Follow (coral primary) / Unfollow (secondary, matching Edit profile).
+ *  Renders nothing while the follow state loads — the slot stays empty
+ *  rather than flashing the wrong button. */
+function FollowButton({
+  userId,
+  onError,
+}: {
+  userId: string;
+  onError: (message: string | null) => void;
+}) {
+  const { data: following, isPending } = useIsFollowing(userId);
+  const followMutation = useFollow();
+  const unfollowMutation = useUnfollow();
+  const busy = followMutation.isPending || unfollowMutation.isPending;
+
+  if (isPending) return null;
+
+  const toggle = () => {
+    const mutation = following ? unfollowMutation : followMutation;
+    mutation.mutate(userId, {
+      onSuccess: () => onError(null),
+      onError: (error) => onError(error.message),
+    });
+  };
+
+  return following ? (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel="Unfollow"
+      disabled={busy}
+      onPress={toggle}
+      className="rounded-full border border-borderStrong bg-surfaceRaised px-5 py-2">
+      <Text className="font-sans-bold text-sm text-ink">Unfollow</Text>
+    </Pressable>
+  ) : (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel="Follow"
+      disabled={busy}
+      onPress={toggle}
+      className="rounded-full bg-primary px-5 py-2">
+      <Text className="font-sans-bold text-sm text-white">Follow</Text>
+    </Pressable>
+  );
+}
+
 /** Read-only audience view of another user's profile: public identity +
- *  published trips only. The header's action slot stays empty until follows
- *  ship; no owner actions (edit / sign out / create) are offered here. */
+ *  published trips only. The header's action slot holds Follow/Unfollow;
+ *  no owner actions (edit / sign out / create) are offered here. */
 export function AudienceProfileScreen({ userId }: { userId: string }) {
   const router = useRouter();
   const { data: profile, isPending, error } = useProfile(userId);
   const { data: trips, isPending: tripsPending } = usePublishedTripsByOwner(userId);
+  const { data: followerCount } = useFollowerCount(userId);
+  const [followError, setFollowError] = useState<string | null>(null);
   const coverPaths = (trips ?? []).flatMap((t) => (t.cover_path ? [t.cover_path] : []));
   const { data: coverUrls } = useSignedUrls('trip-media', coverPaths);
 
@@ -39,8 +89,17 @@ export function AudienceProfileScreen({ userId }: { userId: string }) {
 
   return (
     <ScrollView className="flex-1 bg-surface">
-      <ProfileHeader profile={profile} action={null} coversStatusBar={false} />
-      <ProfileStats followers={0} trips={trips?.length ?? 0} saves={0} />
+      <ProfileHeader
+        profile={profile}
+        action={<FollowButton userId={userId} onError={setFollowError} />}
+        coversStatusBar={false}
+      />
+      {followError ? (
+        <View className="mt-3 px-5">
+          <FormError message={followError} />
+        </View>
+      ) : null}
+      <ProfileStats followers={followerCount ?? 0} trips={trips?.length ?? 0} saves={0} />
       <View className="mb-10 mt-5 px-5">
         <Text
           accessibilityRole="header"
