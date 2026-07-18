@@ -1,18 +1,20 @@
 import { Image } from 'expo-image';
 import { Link, useRouter } from 'expo-router';
 import type { ReactNode } from 'react';
+import { useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import type { TripEngagement } from '@/data/engagement';
 import { useTripEngagement } from '@/data/engagement';
-import { useFollowerCount } from '@/data/follows';
+import { useFollowerCount, useFollowingCount } from '@/data/follows';
 import type { Profile } from '@/data/profiles';
 import { profileMediaUrl, useMyProfile } from '@/data/profiles';
 import { useSignedUrls } from '@/data/storage';
 import type { TripWithStops } from '@/data/trips';
 import { getTripState, useMyTrips } from '@/data/trips';
 import { FormError } from '@/features/auth/form';
+import { ProfileTabBar, SavedTripsSection } from '@/features/profile/profile-tabs';
 import { TripCard, tripCardMeta } from '@/features/trips/trip-card';
 import { colors } from '@/theme/tokens';
 
@@ -85,20 +87,24 @@ function Stat({ value, label, valueClass }: { value: number; label: string; valu
   );
 }
 
-/** All three are real counts: followers from the follows edge, saves summed
- *  across the user's trips (trip-engagement), trips from the list length. */
+/** All four are real counts: followers/following from the follows edges,
+ *  saves summed across the user's trips (saves *received* — the Saved tab
+ *  below is saves *given*), trips from the list length. */
 export function ProfileStats({
   followers,
+  following,
   trips,
   saves,
 }: {
   followers: number;
+  following: number;
   trips: number;
   saves: number;
 }) {
   return (
     <View className="mx-5 mt-4 flex-row gap-6 border-y border-border py-3.5">
       <Stat value={followers} label="followers" />
+      <Stat value={following} label="following" />
       <Stat value={trips} label="trips" />
       <Stat value={saves} label="saves" valueClass="text-secondary" />
     </View>
@@ -122,62 +128,91 @@ function StartTripCard() {
   );
 }
 
+const OWNER_TABS = [
+  { key: 'trips', label: 'Trips' },
+  { key: 'drafts', label: 'Drafts' },
+  { key: 'saved', label: 'Saved' },
+] as const;
+
+type OwnerTabKey = (typeof OWNER_TABS)[number]['key'];
+
 function ProfileTripsSection({
+  userId,
   trips,
   isPending,
   engagement,
 }: {
+  userId: string;
   trips: TripWithStops[] | undefined;
   isPending: boolean;
   engagement: Record<string, TripEngagement> | undefined;
 }) {
+  const [tab, setTab] = useState<OwnerTabKey>('trips');
   const coverPaths = (trips ?? []).flatMap((t) => (t.cover_path ? [t.cover_path] : []));
   const { data: coverUrls } = useSignedUrls('trip-media', coverPaths);
+  const published = (trips ?? []).filter((t) => getTripState(t) !== 'draft');
+  const drafts = (trips ?? []).filter((t) => getTripState(t) === 'draft');
+
+  const renderCard = (trip: TripWithStops, index: number) => (
+    <Link key={trip.id} href={{ pathname: '/trip/[id]', params: { id: trip.id } }} asChild>
+      <Pressable accessibilityRole="button" accessibilityLabel={`Open trip ${trip.title}`}>
+        <TripCard
+          title={trip.title}
+          subtitle={trip.description ?? 'No description'}
+          state={getTripState(trip)}
+          meta={tripCardMeta(trip)}
+          views={engagement?.[trip.id]?.views ?? 0}
+          saves={engagement?.[trip.id]?.saves ?? 0}
+          coverUrl={trip.cover_path ? coverUrls?.[trip.cover_path] : undefined}
+          tintIndex={index}
+        />
+      </Pressable>
+    </Link>
+  );
 
   return (
     <View className="mt-5 px-5">
-      <Text
-        accessibilityRole="header"
-        className="mb-3 font-sans-bold text-sm tracking-widest text-inkMuted">
-        TRIPS
-      </Text>
-      {isPending ? (
-        <ActivityIndicator color={colors.primary} />
-      ) : trips && trips.length > 0 ? (
-        <>
-          <StartTripCard />
-          {trips.map((trip, index) => (
-            <Link key={trip.id} href={{ pathname: '/trip/[id]', params: { id: trip.id } }} asChild>
-              <Pressable accessibilityRole="button" accessibilityLabel={`Open trip ${trip.title}`}>
-                <TripCard
-                  title={trip.title}
-                  subtitle={trip.description ?? 'No description'}
-                  state={getTripState(trip)}
-                  meta={tripCardMeta(trip)}
-                  views={engagement?.[trip.id]?.views ?? 0}
-                  saves={engagement?.[trip.id]?.saves ?? 0}
-                  coverUrl={trip.cover_path ? coverUrls?.[trip.cover_path] : undefined}
-                  tintIndex={index}
-                />
-              </Pressable>
-            </Link>
-          ))}
-        </>
-      ) : (
-        <View className="items-center rounded-bubble border border-border bg-surfaceRaised px-6 py-8">
-          <Text className="text-center font-display-italic text-base text-inkMuted">
-            No trips yet — start your first journal.
-          </Text>
-          <Link href="/trip/new" asChild>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Start your first trip"
-              className="mt-4 rounded-full bg-primary px-6 py-3">
-              <Text className="font-sans-semibold text-base text-white">Start a trip</Text>
-            </Pressable>
-          </Link>
-        </View>
-      )}
+      <ProfileTabBar tabs={[...OWNER_TABS]} active={tab} onChange={setTab} />
+      <View className="mt-4">
+        {tab === 'trips' ? (
+          isPending ? (
+            <ActivityIndicator color={colors.primary} />
+          ) : published.length > 0 ? (
+            published.map(renderCard)
+          ) : (
+            <View className="items-center rounded-bubble border border-border bg-surfaceRaised px-6 py-8">
+              <Text className="text-center font-display-italic text-base text-inkMuted">
+                No trips yet — start your first journal.
+              </Text>
+              <Link href="/trip/new" asChild>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Start your first trip"
+                  className="mt-4 rounded-full bg-primary px-6 py-3">
+                  <Text className="font-sans-semibold text-base text-white">Start a trip</Text>
+                </Pressable>
+              </Link>
+            </View>
+          )
+        ) : null}
+        {tab === 'drafts' ? (
+          isPending ? (
+            <ActivityIndicator color={colors.primary} />
+          ) : (
+            <>
+              {/* The create CTA always leads Drafts — with zero drafts it IS the tab. */}
+              <StartTripCard />
+              {drafts.map(renderCard)}
+            </>
+          )
+        ) : null}
+        {tab === 'saved' ? (
+          <SavedTripsSection
+            userId={userId}
+            emptyMessage="Nothing saved yet — trips you save will land here."
+          />
+        ) : null}
+      </View>
     </View>
   );
 }
@@ -189,6 +224,7 @@ export function ProfileScreen({ coversStatusBar = true }: { coversStatusBar?: bo
   const { data: profile, isPending, error } = useMyProfile();
   const { data: trips, isPending: tripsPending } = useMyTrips();
   const { data: followerCount } = useFollowerCount(profile?.id);
+  const { data: followingCount } = useFollowingCount(profile?.id);
   const { data: engagement } = useTripEngagement((trips ?? []).map((t) => t.id));
   const savesTotal = (trips ?? []).reduce((sum, t) => sum + (engagement?.[t.id]?.saves ?? 0), 0);
 
@@ -225,8 +261,18 @@ export function ProfileScreen({ coversStatusBar = true }: { coversStatusBar?: bo
           </Pressable>
         }
       />
-      <ProfileStats followers={followerCount ?? 0} trips={trips?.length ?? 0} saves={savesTotal} />
-      <ProfileTripsSection trips={trips} isPending={tripsPending} engagement={engagement} />
+      <ProfileStats
+        followers={followerCount ?? 0}
+        following={followingCount ?? 0}
+        trips={trips?.length ?? 0}
+        saves={savesTotal}
+      />
+      <ProfileTripsSection
+        userId={profile.id}
+        trips={trips}
+        isPending={tripsPending}
+        engagement={engagement}
+      />
       <View className="mb-10" />
     </ScrollView>
   );

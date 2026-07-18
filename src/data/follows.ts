@@ -28,6 +28,16 @@ export async function getFollowerCount(userId: string): Promise<number> {
   return count ?? 0;
 }
 
+export async function getFollowingCount(userId: string): Promise<number> {
+  const client = getSupabaseClient();
+  const { count, error } = await client
+    .from('follows')
+    .select('*', { count: 'exact', head: true })
+    .eq('follower_id', userId);
+  if (error) throw new Error(error.message);
+  return count ?? 0;
+}
+
 export async function follow(followeeId: string): Promise<void> {
   const client = getSupabaseClient();
   const followerId = await requireUserId();
@@ -67,6 +77,14 @@ export function useFollowerCount(userId: string | undefined) {
   });
 }
 
+export function useFollowingCount(userId: string | undefined) {
+  return useQuery({
+    queryKey: ['follows', 'following-count', userId],
+    queryFn: () => getFollowingCount(userId!),
+    enabled: !!userId,
+  });
+}
+
 function useToggleFollow(mutationFn: (followeeId: string) => Promise<void>) {
   const queryClient = useQueryClient();
   return useMutation({
@@ -74,6 +92,8 @@ function useToggleFollow(mutationFn: (followeeId: string) => Promise<void>) {
     onSuccess: (_data, followeeId) => {
       queryClient.invalidateQueries({ queryKey: ['follows', 'is-following', followeeId] });
       queryClient.invalidateQueries({ queryKey: ['follows', 'follower-count', followeeId] });
+      // The toggler's own following count changed; prefix-wide is the simple superset.
+      queryClient.invalidateQueries({ queryKey: ['follows', 'following-count'] });
     },
   });
 }

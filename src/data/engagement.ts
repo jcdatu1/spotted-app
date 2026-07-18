@@ -4,7 +4,8 @@ import { useEffect } from 'react';
 import { useSession } from './auth';
 import { getSupabaseClient } from './client';
 import { requireUserId } from './storage';
-import type { Trip } from './trips';
+import type { Trip, TripWithOwner } from './trips';
+import { OWNER_JOIN } from './trips';
 
 export type TripEngagement = { views: number; saves: number };
 
@@ -48,6 +49,19 @@ export async function getIsTripSaved(tripId: string): Promise<boolean> {
   return data !== null;
 }
 
+/** Trips this user saved, newest save first. Trips the caller can't read
+ *  (per trip RLS) come back as null joins and are silently dropped. */
+export async function listSavedTrips(userId: string): Promise<TripWithOwner[]> {
+  const client = getSupabaseClient();
+  const { data, error } = await client
+    .from('trip_saves')
+    .select(`created_at, trip:trips(${OWNER_JOIN})`)
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false });
+  if (error) throw new Error(error.message);
+  return data.flatMap((row) => (row.trip ? [row.trip] : []));
+}
+
 export async function saveTrip(tripId: string): Promise<void> {
   const client = getSupabaseClient();
   const userId = await requireUserId();
@@ -86,6 +100,16 @@ export function useRecordTripView(trip: Pick<Trip, 'id' | 'owner_id' | 'status'>
   }, [isReader, trip.id, mutate]);
 }
 
+/** A user's saved-trips list for the profile Saved tab — gate with `enabled`
+ *  so the query only fires once the tab is opened. */
+export function useSavedTrips(userId: string | undefined, enabled: boolean) {
+  return useQuery({
+    queryKey: ['saves', 'list', userId],
+    queryFn: () => listSavedTrips(userId!),
+    enabled: enabled && !!userId,
+  });
+}
+
 /** Save state for a trip the signed-in user doesn't own. */
 export function useIsTripSaved(tripId: string, enabled: boolean) {
   return useQuery({
@@ -101,6 +125,7 @@ function useToggleSave(mutationFn: (tripId: string) => Promise<void>) {
     mutationFn,
     onSuccess: (_data, tripId) => {
       queryClient.invalidateQueries({ queryKey: ['saves', 'is-saved', tripId] });
+      queryClient.invalidateQueries({ queryKey: ['saves', 'list'] });
       queryClient.invalidateQueries({ queryKey: ['engagement'] });
     },
   });

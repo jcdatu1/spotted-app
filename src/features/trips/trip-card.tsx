@@ -238,16 +238,17 @@ type FeedTripCardProps = {
   /** Public avatar URL; initial-on-coral fallback when absent. */
   avatarUrl?: string;
   state: TripState;
-  stops: number;
-  /** Inclusive trip length; omitted for legacy trips without dates. */
-  days?: number;
+  /** Unique-reader count for the footer stats. */
+  views: number;
+  /** Save count for the footer stats (teal = saves). */
+  saves: number;
   coverUrl?: string;
   tintIndex?: number;
 };
 
 /** The home feed's big boarding-pass card per the mockup: 148px full-width
  *  cover with overlaid badge + title, notched perforation, then an
- *  avatar/creator footer with STOPS · DAYS stats. */
+ *  avatar/creator footer with VIEWS · SAVES stats. */
 export function FeedTripCard({
   title,
   meta,
@@ -255,8 +256,8 @@ export function FeedTripCard({
   creatorUsername,
   avatarUrl,
   state,
-  stops,
-  days,
+  views,
+  saves,
   coverUrl,
   tintIndex = 0,
 }: FeedTripCardProps) {
@@ -336,10 +337,8 @@ export function FeedTripCard({
           </View>
         </View>
         <View className="flex-row gap-4">
-          <FooterStat value={stops} label="STOPS" valueClass="text-secondary" />
-          {days !== undefined ? (
-            <FooterStat value={days} label="DAYS" valueClass="text-ink" />
-          ) : null}
+          <FooterStat value={views} label="VIEWS" valueClass="text-ink" />
+          <FooterStat value={saves} label="SAVES" valueClass="text-secondary" />
         </View>
       </View>
     </View>

@@ -73,7 +73,7 @@ Key product stances:
 **Profiles** ([src/features/profile/](src/features/profile/), [src/data/profiles.ts](src/data/profiles.ts))
 - Public profile: username (immutable, enforced by DB trigger), display name, bio (≤160), avatar, cover photo.
 - Owner-private birthday stored in a separate `private_profiles` table (RLS is row-level, so owner-only visibility requires its own table).
-- Profile screen: cover band (photo or teal fallback) + overlapping avatar + identity block + stats row (followers, trips, and saves are ALL real counts — saves is the sum of `trip_saves` across the user's trips, summed client-side from the card engagement fetch) + trip list led by a compact full-width "Start a trip" CTA card matching trip-card height (the screen's one coral action; Edit profile is secondary-styled). Sign out lives in Settings, not here.
+- Profile screen: cover band (photo or teal fallback) + overlapping avatar + identity block + stats row (followers, following, trips, and saves are ALL real counts — saves is the sum of `trip_saves` across the user's trips, i.e. saves *received*, summed client-side from the card engagement fetch) + a tabbed trip section (`ProfileTabBar` segmented pills, since `add-profile-tabs-and-feed-engagement`): **Trips** (published), **Drafts** (led by the "Where to next?" CTA card — the screen's one coral action; Edit profile is secondary-styled), **Saved** (trips saved from other creators, cards attributed `by @username`, query gated until the tab is opened). Sign out lives in Settings, not here.
 - Edit profile screen: display name, bio, birthday, avatar/cover pickers via the shared `ImageInputField` (no text labels — the `+` affordance carries it).
 - Media replace lifecycle: upload new file under a fresh unique name → point the row at it → best-effort delete predecessor. A row never references a missing file.
 
@@ -95,7 +95,7 @@ Key product stances:
 
 **Home tab** ([src/app/(tabs)/(home)/index.tsx](src/app/(tabs)/(home)/index.tsx))
 - Feed of the 50 most recently published trips (all users), newest first, linking into threads. (The scaffold-era backend health card was removed 2026-07-18; `useHealthCheck` in [src/data/health.ts](src/data/health.ts) is kept dormant for a future diagnostics surface.)
-- Renders the mockup's **big feed card** (`FeedTripCard`, not the compact boarding pass): 148px full-width cover with scrim + overlaid mono meta and Fraunces title, md-size cover badge, notched dashed perforation, footer with creator avatar/name/@username and STOPS · DAYS mono stats (`listPublishedTrips` includes stops + owner avatar; days from `tripDayCount`).
+- Renders the mockup's **big feed card** (`FeedTripCard`, not the compact boarding pass): 148px full-width cover with scrim + overlaid mono meta and Fraunces title, md-size cover badge, notched dashed perforation, footer with creator avatar/name/@username and VIEWS · SAVES mono stats (views ink, saves teal; batched from `useTripEngagement` over the feed's ids — replaced STOPS/DAYS in `add-profile-tabs-and-feed-engagement`; the data-layer stops count and `tripDayCount` remain, currently unrendered).
 
 **Discover tab** ([src/features/discover/](src/features/discover/), [src/data/search.ts](src/data/search.ts))
 - Search input with debounced (300ms, min 2 chars) live search-as-you-type; results in three sections — COUNTRIES (client-side from the static list, instant), USERS (avatar thumbnail + display name + @username), TRIPS (published only, boarding-pass cards).
@@ -104,7 +104,7 @@ Key product stances:
 - Recent searches: device-local Zustand store persisted to AsyncStorage (first Zustand usage in the app — `src/features/discover/search-history.ts`), last 10 distinct terms, shown when input is empty, tap to re-run, clearable.
 
 **Audience profiles & follows** ([src/features/profile/audience-profile-screen.tsx](src/features/profile/audience-profile-screen.tsx), [src/data/follows.ts](src/data/follows.ts))
-- Read-only `/user/[id]` (pushed, chevron back): reuses `ProfileHeader` (`coversStatusBar={false}` since the native header clears the notch) + stats row (real follower count) + published trips only. No drafts, no private fields, no owner actions.
+- Read-only `/user/[id]` (pushed, chevron back): reuses `ProfileHeader` (`coversStatusBar={false}` since the native header clears the notch) + stats row (real follower/following counts) + a two-tab section: **Trips** (published only) and **Saved** (trips that user saved — public-in-app by design, matching follows readability). No drafts under any tab, no private fields, no owner actions.
 - Header action slot holds **Follow** (coral primary) / **Unfollow** (secondary, Edit-profile style); toggle disabled while the mutation pends, empty while follow state loads, errors via `FormError`. Backed by the `follows` edge table (RLS: read all, write own edges only, self-follow CHECK-blocked).
 - **Self-view**: opening `/user/[id]` with your own id (e.g. tapping yourself in search) renders the full owner `ProfileScreen` inline — edit/create/drafts, no Follow button — keeping the pushed back button.
 
@@ -122,7 +122,7 @@ Key product stances:
 
 ### Not built yet (see [Roadmap](#16-roadmap))
 
-Follower/following lists, trending/recommendations, reactions, saves, itinerary copy, video updates, maps, push notifications, realtime threads, moderation/report/block, editing published trips, editing/deleting updates from the UI.
+Follower/following lists, trending/recommendations, reactions, itinerary copy, video updates, maps, push notifications, realtime threads, moderation/report/block, editing published trips, editing/deleting updates from the UI.
 
 ---
 
@@ -185,6 +185,9 @@ Rules that hold everywhere:
 | `['budget', tripId]` | Budget lines |
 | `['my-profile', userId]` | Own profile + birthday |
 | `['signed-urls', bucket, sortedPaths]` | Batched signed URLs |
+| `['follows', 'follower-count' \| 'following-count' \| 'is-following', userId]` | Follow edges |
+| `['engagement', sortedTripIds]` | Batched view/save counts |
+| `['saves', 'is-saved', tripId]` / `['saves', 'list', userId]` | Save state / saved-trips list |
 | `['backend-health']` | Health check |
 
 Mutations invalidate by prefix (e.g. any trip mutation invalidates `['trips']`; posting an update invalidates that trip's `updates` + `budget`).
@@ -399,8 +402,8 @@ All modules in [src/data/](src/data/). Pattern per module: plain async functions
 | [profiles.ts](src/data/profiles.ts) | `Profile`, `MyProfile` (+birthday), `getMyProfile`, `getProfileById`, `updateMyProfile`, `setMyAvatar/setMyCover`, `isUsernameAvailable`, `profileMediaUrl`, `useMyProfile`, `useProfile(id)`, `useUpdateMyProfile` |
 | [trips.ts](src/data/trips.ts) | `Trip`, `TripWithOwner`, `TripWithStops`, `TripState`, `OWNER_JOIN`, `getTripState`, `getPublishBlocker`, `localToday`, `createTrip`, `updateTrip` (draft-only), `publishTrip`, `getTrip`, `listMyTrips`, `listPublishedTrips`, `listPublishedTripsByOwner/ByCountry` + `useTrip/useMyTrips/usePublishedTrips/usePublishedTripsByOwner/usePublishedTripsByCountry/useCreateTrip/useUpdateTrip/usePublishTrip` |
 | [search.ts](src/data/search.ts) | `useSearch(term)` / `searchAll` — parallel ILIKE queries (profiles + published trips, capped 10 each, wildcards escaped) + client-side country matches; `MIN_SEARCH_LENGTH = 2`; internals swappable for a ranked RPC / pg_trgm |
-| [follows.ts](src/data/follows.ts) | `getIsFollowing`, `getFollowerCount` (head count), `follow` (23505 = already following, not an error), `unfollow`, `useIsFollowing(id)` (disabled for self), `useFollowerCount(id)`, `useFollow()`/`useUnfollow()` (invalidate both keys for the followee) |
-| [engagement.ts](src/data/engagement.ts) | `TripEngagement {views, saves}`, `useTripEngagement(tripIds)` (batched map from the `trip_engagement` view), `useRecordTripView(trip)` (effect-fired idempotent upsert, non-owner + published only), `useIsTripSaved`, `useSaveTrip()`/`useUnsaveTrip()` (invalidate is-saved + engagement) |
+| [follows.ts](src/data/follows.ts) | `getIsFollowing`, `getFollowerCount`/`getFollowingCount` (head counts), `follow` (23505 = already following, not an error), `unfollow`, `useIsFollowing(id)` (disabled for self), `useFollowerCount(id)`/`useFollowingCount(id)`, `useFollow()`/`useUnfollow()` (invalidate followee keys + the following-count prefix) |
+| [engagement.ts](src/data/engagement.ts) | `TripEngagement {views, saves}`, `useTripEngagement(tripIds)` (batched map from the `trip_engagement` view), `useRecordTripView(trip)` (effect-fired idempotent upsert, non-owner + published only), `useIsTripSaved`, `useSavedTrips(userId, enabled)` (saved list by saver, newest first, null-joins dropped), `useSaveTrip()`/`useUnsaveTrip()` (invalidate is-saved + saved list + engagement) |
 | [updates.ts](src/data/updates.ts) | `Update` **discriminated union** (Note/Photo/Purchase/Attraction), `NewUpdate`, `listUpdates`, `createUpdate`, `BudgetLine`, `getTripBudget`, `useTripUpdates`, `useTripBudget`, `useCreateUpdate`. Rows violating variant invariants (or reserved `video`) map to `null` and are filtered out. |
 | [media.ts](src/data/media.ts) | `uploadTripPhoto(tripId, image)`, `useSignedPhotoUrls(paths)` |
 | [storage.ts](src/data/storage.ts) | `AppBucket`, `requireUserId`, `uniqueObjectName`, `uploadImage`, `publicUrl`, `removeObjects`, `useSignedUrls` |
@@ -557,6 +560,7 @@ All product work is planned as OpenSpec changes in [openspec/](openspec/) (`spec
 | `add-follows` | **active** | Follows edge table + RLS, Follow/Unfollow on audience profiles, real follower counts, `/user/[id]` self-view → owner screen |
 | `rework-trip-thread-shell` | **active** | Persistent tab bar (per-tab stacks + shared routes), context-aware `+` button, composer sheet replaces inline bar, viewer-relative thread alignment |
 | `rework-trip-cards-and-engagement` | **active** | Mockup trip cards + cover badges, views/saves tracking (migration 6), thread Save pill, real profile saves stat, create/publish stranding fix + strict Profile tab |
+| `add-profile-tabs-and-feed-engagement` | **active** | Profile tab sections (Trips/Drafts/Saved own, Trips/Saved audience), saved-trips list surface, CTA moved into Drafts, feed card VIEWS/SAVES footer, following stat |
 
 ---
 
@@ -622,3 +626,4 @@ Planned sequence (one OpenSpec change each), from config.yaml:
 - **2026-07-18** — `rework-trip-thread-shell` implemented: `(tabs)` restructured into per-tab stacks (`(home)`, `(discover)`, `(profile)`) with `trip/[id]` + `user/[id]` as shared routes in `(home,discover,profile)/` so the tab bar persists on threads and profiles; `pushedHeader` extracted to `src/theme/navigation.ts` (shared routes apply it inline); center `+` button context-aware via new `composer-store.ts` (zustand) — owned thread → type picker + `ComposerSheet` (RN `Modal` bottom sheet; `composer-bar.tsx` deleted), elsewhere → `/trip/new`; thread bubbles viewer-relative aligned (`own` prop, owner = right/outbound); root-stack `replace` calls into the thread group-qualified to `/(tabs)/(profile)/trip/[id]`. Sections 3, 6, 7, 15, 16, 17 updated.
 - **2026-07-18** — `rework-trip-cards-and-engagement` follow-up: fixed zero card padding (`px-3.5`/`mb-3.5` had no token — NativeWind silently drops scale-less classes; `3.5: 14` and `4.5: 18` added to `tokens.spacing`) and rebuilt the Home feed with the mockup's big card (`FeedTripCard`: 148px cover + scrim + overlay title, md badge, notched perforation, avatar footer with STOPS/DAYS; `OWNER_JOIN` gained `avatar_path`, `listPublishedTrips` gained stops, `tripDayCount` added to lib/dates). Sections 3, 16→17 quirks updated.
 - **2026-07-18** — `rework-trip-cards-and-engagement` implemented: trip cards rebuilt to the mockup (96px cover, radius-20, soft shadow, cover-overlay badges — pulsing coral LIVE / teal COMPLETED — mockup status-chip palette); stops chip replaced by views/saves mono chips on profile surfaces; migration 6 (`trip_views` + `trip_saves` per-user edges, published + not-own-trip INSERT guards, `trip_engagement` security-invoker view) with new `src/data/engagement.ts`; thread records one idempotent view per reader and shows a teal Save/Saved pill to non-owners; profile saves stat real on both surfaces (client-side sum). **Bug fix**: `trip/new`'s group-qualified `replace` was replacing the `(profile)` stack's root, stranding users after create→publish — now `back()` + `push` into the originating tab; edit bounce pops instead of replacing; Profile tab gets `popToTopOnBlur` (strict landing). Sections 3, 7, 8, 9, 10, 15, 16, 17 updated.
+- **2026-07-18** — `add-profile-tabs-and-feed-engagement` implemented (no migration — `trip_saves` RLS and its `user_id` index already anticipated the saved-list surface): both profile trip sections became tabbed (`src/features/profile/profile-tabs.tsx` — segmented pill `ProfileTabBar`, `SavedTripsSection`, `TabEmptyState`); owner tabs Trips/Drafts/Saved with the "Where to next?" CTA relocated inside Drafts; audience tabs Trips/Saved (saved lists are public-in-app by design); `useSavedTrips(userId, enabled)` + save/unsave now invalidates `['saves', 'list']`; stats row gained **following** (`useFollowingCount`, toggles invalidate the prefix) — saves stat still means saves *received*; the Saved tab is saves *given*; `FeedTripCard` footer swapped STOPS/DAYS for VIEWS/SAVES (same `FooterStat` format, saves teal), home screen batch-fetches engagement. Sections 3, 5, 10, 15 updated.

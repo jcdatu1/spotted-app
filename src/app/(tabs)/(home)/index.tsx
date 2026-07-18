@@ -2,17 +2,18 @@ import { Link } from 'expo-router';
 import { FlatList, Pressable, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { useTripEngagement } from '@/data/engagement';
 import { profileMediaUrl } from '@/data/profiles';
 import { useSignedUrls } from '@/data/storage';
 import { getTripState, usePublishedTrips } from '@/data/trips';
 import { SpottedWordmark } from '@/features/brand/wordmark';
 import { FeedTripCard, tripCardMeta } from '@/features/trips/trip-card';
-import { tripDayCount } from '@/lib/dates';
 
 export default function HomeScreen() {
   const { data: trips, isPending, refetch, isRefetching } = usePublishedTrips();
   const coverPaths = (trips ?? []).flatMap((t) => (t.cover_path ? [t.cover_path] : []));
   const { data: coverUrls } = useSignedUrls('trip-media', coverPaths);
+  const { data: engagement } = useTripEngagement((trips ?? []).map((t) => t.id));
 
   return (
     <SafeAreaView className="flex-1 bg-surface">
@@ -40,12 +41,8 @@ export default function HomeScreen() {
                 creatorUsername={item.owner.username}
                 avatarUrl={profileMediaUrl(item.owner.avatar_path) ?? undefined}
                 state={getTripState(item)}
-                stops={item.stops}
-                days={
-                  item.start_date && item.end_date
-                    ? tripDayCount(item.start_date, item.end_date)
-                    : undefined
-                }
+                views={engagement?.[item.id]?.views ?? 0}
+                saves={engagement?.[item.id]?.saves ?? 0}
                 coverUrl={item.cover_path ? coverUrls?.[item.cover_path] : undefined}
                 tintIndex={index}
               />
